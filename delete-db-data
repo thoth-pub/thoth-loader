@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -eu
+cd $(dirname $0)
+
+. .env
+
+STATEMENT="
+DELETE FROM funding;
+DELETE FROM funder;
+DELETE FROM subject;
+DELETE FROM price;
+DELETE FROM publication;
+DELETE FROM contribution;
+DELETE FROM contributor;
+DELETE FROM issue;
+DELETE FROM series;
+DELETE FROM language;
+DELETE FROM work;
+DELETE FROM imprint;
+DELETE FROM publisher;
+"
+
+docker exec -it $CONTAINER psql -U $USER $DATABASE -a -w -q -c "$STATEMENT"
