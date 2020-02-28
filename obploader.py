@@ -238,11 +238,12 @@ class OBPBookLoader(BookLoader):
             if not name or not surname:
                 continue
             fullname = "{} {}".format(name, surname)
+            orcid = self.data.at[row, "ORCID ID {}".format(index)]
             contributor = {
                 "firstName": name,
                 "lastName": surname,
                 "fullName": fullname,
-                "orcid": self.data.at[row, "ORCID ID"],
+                "orcid": orcid,
                 "website": None
 
             }
