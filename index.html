@@ -1,0 +1,125 @@
+$def with (success = '', error = '')
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="shortcut icon" href="https://staging.thoth.openbookpublishers.com/favicon.ico">
+        <title>Thoth Loader</title>
+        <meta name="description" content="Bulk upload metadata to thoth.">
+        <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.css">
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/milligram/1.4.0/milligram.css">
+        <!-- Matomo -->
+        <script type="text/javascript">
+          var _paq = window._paq || [];
+          _paq.push(["setDocumentTitle", document.domain + "/" + document.title]);
+          _paq.push(["setCookieDomain", "*.staging.thoth.openbookpublishers.com"]);
+          _paq.push(['trackPageView']);
+          _paq.push(['enableLinkTracking']);
+          (function() {
+            var u="https://analytics.openbookpublishers.com/";
+            _paq.push(['setTrackerUrl', u+'matomo.php']);
+            _paq.push(['setSiteId', '7']);
+            var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+            g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+          })();
+        </script>
+        <!-- End Matomo Code -->
+        <style>
+          .header {
+            text-align: center;
+            background-color: #f4f5f6;
+            display: block;
+          }
+          .header .container {
+            border-top: 0;
+            padding-bottom: 7.5rem;
+            padding-top: 7.5rem;
+            position: relative;
+            text-align: center;
+          }
+          .logo {
+            height: 30rem;
+            margin-bottom: 2rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .button, input.button {
+            margin-right: 0.5em;
+            background-color: #ec801d;
+            border-color: #ec801d;
+          }
+          a {
+            color: #ec801d;
+          }
+          h5 {
+            color: #ec801d;
+            margin:0px;
+            font-weight:700;
+          }
+          .flex-row {
+              display: flex;
+              flex-flow: row;
+              align-items: center;
+          }
+          .flex-column {
+              display: flex;
+              flex-flow: column;
+          }
+          .center {
+              align-items: center;
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, 0.1%);
+          }
+          .form {
+              border-radius: 3px;
+              overflow: hidden;
+              width: 100%;
+              padding-top: 2em;
+          }
+          .description {
+              width: 50%;
+          }
+        </style>
+    </head>
+    <body>
+        <section class="header">
+            <div class="container">
+                <img class="logo" src="https://staging.thoth.openbookpublishers.com/thoth-logo.png">
+                <a class="button" href="https://staging.thoth.openbookpublishers.com" title="Catalogue">Catalogue</a>
+                <a class="button" href="https://staging.thoth.openbookpublishers.com/graphiql" title="GraphiQL">GraphiQL</a>
+            </div>
+        </section>
+        <div class="container">
+          <div class="flex-column center form">
+            $if success:
+              <p class="description" style="color: green">$success</p>
+            $if error:
+              <p class="description" style="color: red">$error</p>
+            <p class="description">
+              The following form allows you to overwrite the existing data in Thoth by uploading a CSV file containing the full list of titles. The update process will delete any existing data related to the chosen publisher and insert all the records found in the uploaded file.
+            </p>
+            <form enctype="multipart/form-data" action="/" method="post">
+              <fieldset>
+                <label for="mode">Publisher Mode</label>
+                <select id="mode" name="mode">
+                  <option value="punctum">punctum books</option>
+                  <option value="OBP">OBP</option>
+                </select>
+                <label for="filename">Upload Metadata CSV</label>
+                <input type="file" id="filename" name="filename" accept=".csv">
+                <hr/>
+                <input class="button" type="submit" value="Upload">
+              </fieldset>
+            </form>
+          </div>
+        </div>
+    </body>
+</html>
+
