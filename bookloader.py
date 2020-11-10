@@ -55,9 +55,11 @@ class BookLoader():
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
 
-    def __init__(self, metadata_file, client_url):
+    def __init__(self, metadata_file, client_url, email, password):
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
+        self.thoth.login(email, password)
+
         self.data = self.prepare_file()
         self.publisher_id = self.create_publisher()
         self.imprint_id = self.create_imprint()

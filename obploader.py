@@ -49,7 +49,7 @@ class OBPBookLoader(BookLoader):
                 if copyright_text != "":
                     copyright_text += "; "
                 copyright_text += str(holder)
-        oclc = int(self.data.at[row, "OCN (OCLC number)"]) \
+        oclc = str(int(self.data.at[row, "OCN (OCLC number)"])) \
             if self.data.at[row, "OCN (OCLC number)"] else None
         image_count = int(self.data.at[row, "no of illustrations"]) \
             if self.data.at[row, "no of illustrations"] else None

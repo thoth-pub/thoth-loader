@@ -68,8 +68,8 @@ class PunctumBookLoader(BookLoader):
             if self.data.at[row, "Number of Pages"] else None
         edition = int(self.data.at[row, "Edition"]) \
             if self.data.at[row, "Edition"] else 1
-        lccn = int(self.data.at[row, "LCCN"]) if self.data.at[row, "LCCN"] \
-            else None
+        lccn = str(int(self.data.at[row, "LCCN"])) \
+            if self.data.at[row, "LCCN"] else None
 
         work = {
             "workType": self.work_types[
