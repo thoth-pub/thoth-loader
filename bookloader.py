@@ -94,6 +94,12 @@ class BookLoader():
         }
         return self.thoth.create_imprint(imprint)
 
+    def is_main_contribution(self, contribution_type):
+        """Return a boolean string ready for ingestion"""
+        return "true" \
+            if contribution_type in self.main_contributions \
+            else "false"
+
     @staticmethod
     def sanitise_title(title, subtitle):
         """Return a dictionary that includes the full title"""
@@ -131,3 +137,11 @@ class BookLoader():
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
+
+    @staticmethod
+    def sanitise_price(price):
+        """Return a float ready for ingestion"""
+        try:
+            return float(price.replace("$", "").strip())
+        except TypeError:
+            return None
