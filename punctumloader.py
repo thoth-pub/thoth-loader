@@ -118,12 +118,12 @@ class PunctumBookLoader(BookLoader):
         publications = [{
             "workId": work_id,
             "publicationType": "PAPERBACK",
-            "isbn": self.sanitise_isbn(self.data.at[row, "Primary ISBN"]),
+            "isbn": self.sanitise_isbn(self.data.at[row, "Print ISBN"]),
             "publicationUrl": landing_page
         }, {
             "workId": work_id,
             "publicationType": "PDF",
-            "isbn": self.sanitise_isbn(self.data.at[row, "Other ISBN"]),
+            "isbn": self.sanitise_isbn(self.data.at[row, "Ebook ISBN"]),
             "publicationUrl": self.data.at[row, "OAPEN URL"]
         }]
         for publication in publications:
