@@ -41,7 +41,10 @@ class BookLoader():
     }
     work_statuses = {
         "Active": "ACTIVE",
-        "Out of print": "OUT_OF_PRINT"
+        "Cancelled": "CANCELLED",
+        "Forthcoming": "FORTHCOMING",
+        "Out of print": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE"
     }
     contribution_types = {
         "Author": "AUTHOR",
