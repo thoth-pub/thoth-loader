@@ -166,15 +166,17 @@ class PunctumBookLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        languages = self.data.at[row, "Language"].upper().split(";")
-        for language in languages:
-            language = {
-                "workId": work_id,
-                "languageCode": language.strip(),
-                "languageRelation": "ORIGINAL",
-                "mainLanguage": "true"
-            }
-            self.thoth.create_language(language)
+        lang_data = self.data.at[row, "Language"]
+        if lang_data:
+            languages = lang_data.upper().split(";")
+            for language in languages:
+                language = {
+                    "workId": work_id,
+                    "languageCode": language.strip(),
+                    "languageRelation": "ORIGINAL",
+                    "mainLanguage": "true"
+                }
+                self.thoth.create_language(language)
 
     def create_subjects(self, row, work_id):
         """Creates all subjects associated with the current work
