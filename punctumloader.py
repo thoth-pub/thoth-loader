@@ -70,6 +70,8 @@ class PunctumBookLoader(BookLoader):
             if self.data.at[row, "Edition"] else 1
         lccn = str(int(self.data.at[row, "LCCN"])) \
             if self.data.at[row, "LCCN"] else None
+        abstract = self.data.at[row, "Abstract"].strip() \
+            if self.data.at[row, "Abstract"] else None
 
         work = {
             "workType": self.work_types[
@@ -98,7 +100,7 @@ class PunctumBookLoader(BookLoader):
             "lccn": lccn,
             "oclc": None,
             "shortAbstract": None,
-            "longAbstract": self.data.at[row, "Abstract"],
+            "longAbstract": abstract,
             "generalNote": None,
             "toc": None,
             "coverUrl": self.data.at[row, "Cover Image URL"],
@@ -115,19 +117,39 @@ class PunctumBookLoader(BookLoader):
 
         landing_page: previously obtained landing page of the current work
         """
-        publications = [{
-            "workId": work_id,
-            "publicationType": "PAPERBACK",
-            "isbn": self.sanitise_isbn(self.data.at[row, "Print ISBN"]),
-            "publicationUrl": landing_page
-        }, {
-            "workId": work_id,
-            "publicationType": "PDF",
-            "isbn": self.sanitise_isbn(self.data.at[row, "Ebook ISBN"]),
-            "publicationUrl": self.data.at[row, "OAPEN URL"]
-        }]
-        for publication in publications:
-            self.thoth.create_publication(publication)
+        print_isbn = self.sanitise_isbn(self.data.at[row, "Print ISBN"])
+        price = self.sanitise_price(self.data.at[row, "List price ($)"])
+        paperback = "PAPERBACK"
+        pdf = "PDF"
+        publications = [
+            (paperback, print_isbn, landing_page),
+            (paperback, None, self.data.at[row, "Link to Webshop"]),
+            (pdf, None, self.data.at[row, "OAPEN URL"]),
+            (pdf, None, self.data.at[row, "JSTOR URL"]),
+            (pdf, None, self.data.at[row, "Muse URL"]),
+            (pdf, self.sanitise_isbn(self.data.at[row, "Ebook ISBN"]),
+             self.data.at[row, self.data.at[row, "Full   Text URL"]]),
+        ]
+
+        for ptype, isbn, url in publications:
+            # some books are digital only, others do not have all formats
+            if (ptype == paperback and not print_isbn) or not url:
+                continue
+            publication = {
+                "workId": work_id,
+                "publicationType": ptype,
+                "isbn": isbn,
+                "publicationUrl": url
+            }
+            publication_id = self.thoth.create_publication(publication)
+            # We only want priced hard copies
+            if price and ptype == paperback:
+                price = {
+                    "publicationId": publication_id,
+                    "currencyCode": "USD",
+                    "unitPrice": price
+                }
+                self.thoth.create_price(price)
 
     def create_languages(self, row, work_id):
         """Creates all languages associated with the current work
@@ -156,7 +178,8 @@ class PunctumBookLoader(BookLoader):
         subjects = {
             "BIC": self.data.at[row, "BIC"],
             "THEMA": self.data.at[row, "Thema"],
-            "KEYWORD": self.data.at[row, "Keywords"]
+            "KEYWORD": self.data.at[row, "Keywords"],
+            "BISAC": self.data.at[row, "BISAC"],
         }
         for stype, codes in subjects.items():
             if not codes:
@@ -181,7 +204,14 @@ class PunctumBookLoader(BookLoader):
         """
         contributors = {
             "AUTHOR": self.data.at[row, "Authors"],
-            "EDITOR": self.data.at[row, "Editors"]
+            "EDITOR": self.data.at[row, "Editors"],
+            "TRANSLATOR": self.data.at[row, "Translator"],
+            "PHOTOGRAPHER": self.data.at[row, "Photographer"],
+            "ILLUSTRATOR": self.data.at[row, "Illustrator"],
+            "FOREWORD_BY": self.data.at[row, "Foreword by"],
+            "AFTERWORD_BY": self.data.at[row, "Afterword by"],
+            "INTRODUCTION_BY": self.data.at[row, "Introduction by"],
+            "PREFACE_BY": self.data.at[row, "Preface by"],
         }
 
         for contribution_type, people in contributors.items():
@@ -224,7 +254,9 @@ class PunctumBookLoader(BookLoader):
                     "workId": work_id,
                     "contributorId": contributor_id,
                     "contributionType": contribution_type,
-                    "mainContribution": "true",
+                    "mainContribution": self.is_main_contribution(
+                        contribution_type
+                    ),
                     "biography": None,
                     "institution": None
                 }
