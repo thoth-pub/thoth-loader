@@ -58,12 +58,19 @@ class PunctumBookLoader(BookLoader):
             title = self.data.at[row, 'Book Title']
             subtitle = None
         title = self.sanitise_title(title, subtitle)
-        doi = "https://doi.org/{}".format(self.data.at[row, 'DOI'].strip())
+        doi = "https://doi.org/{}".format(self.data.at[row, 'DOI'].strip()) \
+            if self.data.at[row, 'DOI'] else None
 
         publication_date = self.sanitise_date(self.data.at[row, "Date"])
 
-        copyright_text = "{}; {}".format(self.data.at[row, "Authors"],
-                                         self.data.at[row, "Editors"])
+        if self.data.at[row, "Authors"] and self.data.at[row, "Editors"]:
+            copyright_text = "{}; {}".format(self.data.at[row, "Authors"],
+                                             self.data.at[row, "Editors"])
+        elif self.data.at[row, "Authors"] and not self.data.at[row, "Editors"]:
+            copyright_text = self.data.at[row, "Authors"]
+        elif self.data.at[row, "Editors"] and not self.data.at[row, "Authors"]:
+            copyright_text = self.data.at[row, "Editors"]
+
         page_count = int(self.data.at[row, "Number of Pages"]) \
             if self.data.at[row, "Number of Pages"] else None
         edition = int(self.data.at[row, "Edition"]) \
@@ -80,7 +87,7 @@ class PunctumBookLoader(BookLoader):
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
-            "reference": self.data.at[row, "Record Reference"],
+            "reference": str(self.data.at[row, "Record Reference"]),
             "edition": edition,
             "imprintId": imprint_id,
             "doi": doi,
@@ -108,6 +115,7 @@ class PunctumBookLoader(BookLoader):
         }
         return work
 
+    # pylint: disable=too-many-locals
     def create_publications(self, row, work_id, landing_page):
         """Creates all publications associated with the current work
 
@@ -118,7 +126,7 @@ class PunctumBookLoader(BookLoader):
         landing_page: previously obtained landing page of the current work
         """
         print_isbn = self.sanitise_isbn(self.data.at[row, "Print ISBN"])
-        price = self.sanitise_price(self.data.at[row, "List price ($)"])
+        unit_price = self.sanitise_price(self.data.at[row, "List price ($)"])
         paperback = "PAPERBACK"
         pdf = "PDF"
         publications = [
@@ -128,7 +136,7 @@ class PunctumBookLoader(BookLoader):
             (pdf, None, self.data.at[row, "JSTOR URL"]),
             (pdf, None, self.data.at[row, "Muse URL"]),
             (pdf, self.sanitise_isbn(self.data.at[row, "Ebook ISBN"]),
-             self.data.at[row, self.data.at[row, "Full   Text URL"]]),
+             self.data.at[row, "Full Text URL"]),
         ]
 
         for ptype, isbn, url in publications:
@@ -143,11 +151,11 @@ class PunctumBookLoader(BookLoader):
             }
             publication_id = self.thoth.create_publication(publication)
             # We only want priced hard copies
-            if price and ptype == paperback:
+            if unit_price and ptype == paperback:
                 price = {
                     "publicationId": publication_id,
                     "currencyCode": "USD",
-                    "unitPrice": price
+                    "unitPrice": unit_price
                 }
                 self.thoth.create_price(price)
 
@@ -207,7 +215,7 @@ class PunctumBookLoader(BookLoader):
             "EDITOR": self.data.at[row, "Editors"],
             "TRANSLATOR": self.data.at[row, "Translator"],
             "PHOTOGRAPHER": self.data.at[row, "Photographer"],
-            "ILLUSTRATOR": self.data.at[row, "Illustrator"],
+            "ILUSTRATOR": self.data.at[row, "Illustrator"],
             "FOREWORD_BY": self.data.at[row, "Foreword by"],
             "AFTERWORD_BY": self.data.at[row, "Afterword by"],
             "INTRODUCTION_BY": self.data.at[row, "Introduction by"],
@@ -217,7 +225,7 @@ class PunctumBookLoader(BookLoader):
         for contribution_type, people in contributors.items():
             if not people:
                 continue
-            for contributor in people.split(";"):
+            for contributor in people.strip().split(";"):
                 if not contributor:
                     continue
                 names = contributor.split(",")
