@@ -257,9 +257,7 @@ class OBPBookLoader(BookLoader):
             numeral = ".{}".format(index - 1) if index > 1 else ""
             contribution_type = self.contribution_types[
                 self.data.at[row, "OBP Role Name{}".format(numeral)]]
-            main = "true" \
-                if contribution_type in self.main_contributions \
-                else "false"
+            main = self.is_main_contribution(contribution_type)
             contribution = {
                 "workId": work_id,
                 "contributorId": contributor_id,
