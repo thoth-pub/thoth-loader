@@ -74,7 +74,7 @@ class PunctumBookLoader(BookLoader):
         work = {
             "workType": self.work_types[
                 self.data.at[row, "Type of Document"]],
-            "workStatus": "ACTIVE",
+            "workStatus": self.work_statuses[self.data.at[row, "Status"]],
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
