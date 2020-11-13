@@ -121,6 +121,7 @@ class BookLoader():
         """Return a date ready to be ingested"""
         if not date:
             return None
+        date = str(int(date))
         if len(date) == len("20200101"):
             return "{}-{}-{}".format(date[:4], date[4:6], date[6:8])
         return date.replace("/", "-").strip()
