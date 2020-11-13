@@ -35,6 +35,7 @@ class BookLoader():
         "Monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
+        "Edited Book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
     }
