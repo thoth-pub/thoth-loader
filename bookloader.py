@@ -144,5 +144,5 @@ class BookLoader():
         """Return a float ready for ingestion"""
         try:
             return float(price.replace("$", "").strip())
-        except TypeError:
+        except (TypeError, AttributeError):
             return None
