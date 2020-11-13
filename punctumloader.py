@@ -101,7 +101,7 @@ class PunctumBookLoader(BookLoader):
             "longAbstract": self.data.at[row, "Abstract"],
             "generalNote": None,
             "toc": None,
-            "coverUrl": self.data.at[row, "Cover URL"],
+            "coverUrl": self.data.at[row, "Cover Image URL"],
             "coverCaption": None,
         }
         return work
