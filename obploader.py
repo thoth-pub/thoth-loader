@@ -115,7 +115,7 @@ class OBPBookLoader(BookLoader):
             url = landing_page
             if not publication_type or not isbn or len(isbn) != 17:
                 continue
-            publication_type = publication_type.upper()
+            publication_type = publication_type.strip().upper()
             if publication_type == "PDF":
                 url = self.data.at[row, "Full-text URL - PDF"]
             publication = {
@@ -195,7 +195,7 @@ class OBPBookLoader(BookLoader):
                 subject = {
                     "workId": work_id,
                     "subjectType": stype,
-                    "subjectCode": code,
+                    "subjectCode": code.strip(),
                     "subjectOrdinal": index
                 }
                 self.thoth.create_subject(subject)
