@@ -66,17 +66,36 @@ class OBPBookLoader(BookLoader):
             if self.data.at[row, "no of pages"] else None
         page_breakdown = self.data.at[row, "pages"] \
             if self.data.at[row, "pages"] else None
+        edition = int(self.data.at[row, "edition number (integers only)"]) \
+            if self.data.at[row, "no of pages"] else 1
+        status = self.data.at[row, "Status"] \
+            if self.data.at[row, "Status"] else "Forthcoming"
+        license_url = \
+            self.data.at[row, "License URL (human-readable summary)"] \
+            if self.data.at[row, "License URL (human-readable summary)"] \
+            else None
+        short_abstract = \
+            self.data.at[row, "Short Blurb (less than 100 words)"] \
+            if self.data.at[row, "Short Blurb (less than 100 words)"] \
+            else None
+        long_abstract = self.data.at[row, "Plain Text Blurb"] \
+            if self.data.at[row, "Plain Text Blurb"] else None
+        toc = self.data.at[row, "Table of Content"] \
+            if self.data.at[row, "Table of Content"] else None
+        cover = self.data.at[row, "Cover URL"] \
+            if self.data.at[row, "Cover URL"] else None
+        landing = self.data.at[row, "Book-page URL"] \
+            if self.data.at[row, "Book-page URL"] else None
 
         work = {
             "workType": self.work_types[
                 self.data.at[row, "Publication type"]],
-            "workStatus": self.work_statuses[self.data.at[row, "Status"]],
+            "workStatus": self.work_statuses[status],
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
             "reference": None,
-            "edition": int(self.data.at[
-                row, "edition number (integers only)"]),
+            "edition": edition,
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": publication_date,
@@ -89,18 +108,16 @@ class OBPBookLoader(BookLoader):
             "tableCount": table_count,
             "audioCount": audio_count,
             "videoCount": video_count,
-            "license": self.data.at[
-                row, "License URL (human-readable summary)"],
+            "license": license_url,
             "copyrightHolder": copyright_text,
-            "landingPage": self.data.at[row, "Book-page URL"],
+            "landingPage": landing,
             "lccn": None,
             "oclc": oclc,
-            "shortAbstract": self.data.at[
-                row, "Short Blurb (less than 100 words)"],
-            "longAbstract": self.data.at[row, "Plain Text Blurb"],
+            "shortAbstract": short_abstract,
+            "longAbstract": long_abstract,
             "generalNote": None,
-            "toc": self.data.at[row, "Table of Content"],
-            "coverUrl": self.data.at[row, "Cover URL"],
+            "toc": toc,
+            "coverUrl": cover,
             "coverCaption": None,
         }
         return work
@@ -162,30 +179,33 @@ class OBPBookLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        lang = self.data.at[row, "ONIX Language Code"].upper()
-        original = self.data.at[row, "Original ONIX Language Code"].upper()
-        if lang == original:
-            language = {
-                "workId": work_id,
-                "languageCode": lang,
-                "languageRelation": "ORIGINAL",
-                "mainLanguage": "true"
-            }
-            languages = [language]
-        else:
-            languages = [{
-                "workId": work_id,
-                "languageCode": lang,
-                "languageRelation": "TRANSLATED_INTO",
-                "mainLanguage": "true"
-            }, {
-                "workId": work_id,
-                "languageCode": original,
-                "languageRelation": "ORIGINAL",
-                "mainLanguage": "false"
-            }]
-        for language in languages:
-            self.thoth.create_language(language)
+        language_code = self.data.at[row, "ONIX Language Code"]
+        original = self.data.at[row, "Original ONIX Language Code"]
+        if language_code:
+            lang = language_code.upper()
+            original = original.upper() if original else lang
+            if lang == original:
+                language = {
+                    "workId": work_id,
+                    "languageCode": lang,
+                    "languageRelation": "ORIGINAL",
+                    "mainLanguage": "true"
+                }
+                languages = [language]
+            else:
+                languages = [{
+                    "workId": work_id,
+                    "languageCode": lang,
+                    "languageRelation": "TRANSLATED_INTO",
+                    "mainLanguage": "true"
+                }, {
+                    "workId": work_id,
+                    "languageCode": original,
+                    "languageRelation": "ORIGINAL",
+                    "mainLanguage": "false"
+                }]
+            for language in languages:
+                self.thoth.create_language(language)
 
     def create_subjects(self, row, work_id):
         """Creates all subjects associated with the current work
@@ -198,7 +218,7 @@ class OBPBookLoader(BookLoader):
             for stype in ["BIC", "BISAC"]:
                 code = self.data.at[row, "{} subject code {}".format(
                     stype, index)]
-                if not code:
+                if not code or not code.strip():
                     continue
                 subject = {
                     "workId": work_id,
@@ -218,18 +238,20 @@ class OBPBookLoader(BookLoader):
             }
             self.thoth.create_subject(subject)
 
-        keywords = self.data.at[row, "keywords"].replace(",", ";")
-        if keywords:
-            for index, keyword in enumerate(keywords.split(";")):
-                if not keyword:
-                    continue
-                subject = {
-                    "workId": work_id,
-                    "subjectType": "KEYWORD",
-                    "subjectCode": keyword.strip(),
-                    "subjectOrdinal": index + 1
-                }
-                self.thoth.create_subject(subject)
+        keywords_cell = self.data.at[row, "keywords"]
+        if keywords_cell:
+            keywords = keywords_cell.strip().replace(",", ";")
+            if keywords:
+                for index, keyword in enumerate(keywords.split(";")):
+                    if not keyword:
+                        continue
+                    subject = {
+                        "workId": work_id,
+                        "subjectType": "KEYWORD",
+                        "subjectCode": keyword.strip(),
+                        "subjectOrdinal": index + 1
+                    }
+                    self.thoth.create_subject(subject)
 
     def create_contributors(self, row, work_id):
         """Creates all contributions associated with the current work
@@ -245,6 +267,8 @@ class OBPBookLoader(BookLoader):
                 row, "Contributor {} surname".format(index)]
             if not name or not surname:
                 continue
+            name = name.strip()
+            surname = surname.strip()
             fullname = "{} {}".format(name, surname)
             numeral = ".{}".format(index - 1) if index > 1 else ""
             orcid = self.data.at[row, "ORCID ID{}".format(numeral)]
