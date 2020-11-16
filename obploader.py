@@ -23,6 +23,7 @@ class OBPBookLoader(BookLoader):
             self.create_contributors(row, work_id)
             self.create_series(row, self.imprint_id, work_id, work["workType"])
 
+    # pylint: disable=too-many-locals
     def get_work(self, row, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
 
@@ -55,9 +56,8 @@ class OBPBookLoader(BookLoader):
             if self.data.at[row, "no of illustrations"] else None
         table_count = int(self.data.at[row, "no of tables"]) \
             if self.data.at[row, "no of tables"] else None
-        #  at OBP these are combined audio *and* video
-        media_count = int(self.data.at[row, "no of audio/video"]) \
-            if self.data.at[row, "no of audio/video"] else None
+        audio_count, video_count = self.sanitise_media(
+            self.data.at[row, "no of audio/video"])
 
         work = {
             "workType": self.work_types[
@@ -79,8 +79,8 @@ class OBPBookLoader(BookLoader):
             "pageBreakdown": self.data.at[row, "pages"],
             "imageCount": image_count,
             "tableCount": table_count,
-            "audioCount": media_count,
-            "videoCount": None,
+            "audioCount": audio_count,
+            "videoCount": video_count,
             "license": self.data.at[
                 row, "License URL (human-readable summary)"],
             "copyrightHolder": copyright_text,
