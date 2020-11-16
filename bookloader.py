@@ -35,12 +35,16 @@ class BookLoader():
         "Monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
+        "Edited Book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
     }
     work_statuses = {
         "Active": "ACTIVE",
-        "Out of print": "OUT_OF_PRINT"
+        "Cancelled": "CANCELLED",
+        "Forthcoming": "FORTHCOMING",
+        "Out of print": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE"
     }
     contribution_types = {
         "Author": "AUTHOR",
@@ -90,6 +94,12 @@ class BookLoader():
         }
         return self.thoth.create_imprint(imprint)
 
+    def is_main_contribution(self, contribution_type):
+        """Return a boolean string ready for ingestion"""
+        return "true" \
+            if contribution_type in self.main_contributions \
+            else "false"
+
     @staticmethod
     def sanitise_title(title, subtitle):
         """Return a dictionary that includes the full title"""
@@ -111,6 +121,7 @@ class BookLoader():
         """Return a date ready to be ingested"""
         if not date:
             return None
+        date = str(int(date))
         if len(date) == len("20200101"):
             return "{}-{}-{}".format(date[:4], date[4:6], date[6:8])
         return date.replace("/", "-").strip()
@@ -127,3 +138,11 @@ class BookLoader():
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
+
+    @staticmethod
+    def sanitise_price(price):
+        """Return a float ready for ingestion"""
+        try:
+            return float(price.replace("$", "").strip())
+        except (TypeError, AttributeError):
+            return None
