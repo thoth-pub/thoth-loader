@@ -58,6 +58,9 @@ class BookLoader():
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
+    int_regex = re.compile(r'\d+')
+    audio_regex = re.compile(r'[0-9]{1,3} \(aud\)')
+    video_regex = re.compile(r'[0-9]{1,3} \(vid\)')
 
     def __init__(self, metadata_file, client_url, email, password):
         self.metadata_file = metadata_file
@@ -146,3 +149,30 @@ class BookLoader():
             return float(price.replace("$", "").strip())
         except (TypeError, AttributeError):
             return None
+
+    @staticmethod
+    def sanitise_media(media_count):
+        """Return both audio and video count as integers"""
+        def find_integer():
+            return int(BookLoader.int_regex.match(media_count).group(0))
+        # case: single integer in cell means audio count
+        audio_count = video_count = 0
+        try:
+            audio_count = int(media_count)
+            return audio_count, video_count
+        except (TypeError, ValueError):
+            if media_count is None:
+                return 0, 0
+        # case: specific video count in cell, e.g. "2 (vid)"
+        try:
+            if BookLoader.video_regex.search(media_count).group(0):
+                video_count = find_integer()
+        except AttributeError:
+            video_count = 0
+        # case: specific audio count in cell, e.g. "1 (aud)"
+        try:
+            if BookLoader.audio_regex.search(media_count).group(0):
+                audio_count = find_integer()
+        except AttributeError:
+            audio_count = 0
+        return audio_count, video_count
