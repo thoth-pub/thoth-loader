@@ -27,6 +27,16 @@ ARGS = [
         "default": "http://localhost:8080/graphql",
         "help": "Thoth's GraphQL endpoint URL, including '/graphql'"
     }, {
+        "val": "--email",
+        "dest": "email",
+        "action": "store",
+        "help": "Authentication email address"
+    }, {
+        "val": "--password",
+        "dest": "password",
+        "action": "store",
+        "help": "Authentication password"
+    }, {
         "val": "--mode",
         "dest": "mode",
         "action": "store",
@@ -37,9 +47,9 @@ ARGS = [
 ]
 
 
-def run(mode, metadata_file, client_url):
+def run(mode, metadata_file, client_url, email, password):
     """Execute a book loader based on input parameters"""
-    loader = LOADERS[mode](metadata_file, client_url)
+    loader = LOADERS[mode](metadata_file, client_url, email, password)
     loader.run()
 
 
@@ -47,13 +57,18 @@ def get_arguments():
     """Parse input arguments using ARGS"""
     parser = argparse.ArgumentParser()
     for arg in ARGS:
-        parser.add_argument(arg["val"], dest=arg["dest"],
-                            default=arg["default"], action=arg["action"],
-                            help=arg["help"])
+        if 'default' in arg:
+            parser.add_argument(arg["val"], dest=arg["dest"],
+                                default=arg["default"], action=arg["action"],
+                                help=arg["help"])
+        else:
+            parser.add_argument(arg["val"], dest=arg["dest"], required=True,
+                                action=arg["action"], help=arg["help"])
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     ARGUMENTS = get_arguments()
-    run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url)
+    run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url,
+        ARGUMENTS.email, ARGUMENTS.password)

@@ -35,12 +35,16 @@ class BookLoader():
         "Monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
+        "Edited Book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
     }
     work_statuses = {
         "Active": "ACTIVE",
-        "Out of print": "OUT_OF_PRINT"
+        "Cancelled": "CANCELLED",
+        "Forthcoming": "FORTHCOMING",
+        "Out of print": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE"
     }
     contribution_types = {
         "Author": "AUTHOR",
@@ -54,10 +58,15 @@ class BookLoader():
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
+    int_regex = re.compile(r'\d+')
+    audio_regex = re.compile(r'[0-9]{1,3} \(aud\)')
+    video_regex = re.compile(r'[0-9]{1,3} \(vid\)')
 
-    def __init__(self, metadata_file, client_url):
+    def __init__(self, metadata_file, client_url, email, password):
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
+        self.thoth.login(email, password)
+
         self.data = self.prepare_file()
         self.publisher_id = self.create_publisher()
         self.imprint_id = self.create_imprint()
@@ -88,6 +97,12 @@ class BookLoader():
         }
         return self.thoth.create_imprint(imprint)
 
+    def is_main_contribution(self, contribution_type):
+        """Return a boolean string ready for ingestion"""
+        return "true" \
+            if contribution_type in self.main_contributions \
+            else "false"
+
     @staticmethod
     def sanitise_title(title, subtitle):
         """Return a dictionary that includes the full title"""
@@ -109,6 +124,7 @@ class BookLoader():
         """Return a date ready to be ingested"""
         if not date:
             return None
+        date = str(int(date))
         if len(date) == len("20200101"):
             return "{}-{}-{}".format(date[:4], date[4:6], date[6:8])
         return date.replace("/", "-").strip()
@@ -125,3 +141,38 @@ class BookLoader():
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
+
+    @staticmethod
+    def sanitise_price(price):
+        """Return a float ready for ingestion"""
+        try:
+            return float(price.replace("$", "").strip())
+        except (TypeError, AttributeError):
+            return None
+
+    @staticmethod
+    def sanitise_media(media_count):
+        """Return both audio and video count as integers"""
+        def find_integer():
+            return int(BookLoader.int_regex.match(media_count).group(0))
+        # case: single integer in cell means audio count
+        audio_count = video_count = 0
+        try:
+            audio_count = int(media_count)
+            return audio_count, video_count
+        except (TypeError, ValueError):
+            if media_count is None:
+                return 0, 0
+        # case: specific video count in cell, e.g. "2 (vid)"
+        try:
+            if BookLoader.video_regex.search(media_count).group(0):
+                video_count = find_integer()
+        except AttributeError:
+            video_count = 0
+        # case: specific audio count in cell, e.g. "1 (aud)"
+        try:
+            if BookLoader.audio_regex.search(media_count).group(0):
+                audio_count = find_integer()
+        except AttributeError:
+            audio_count = 0
+        return audio_count, video_count
