@@ -58,6 +58,14 @@ class OBPBookLoader(BookLoader):
             if self.data.at[row, "no of tables"] else None
         audio_count, video_count = self.sanitise_media(
             self.data.at[row, "no of audio/video"])
+        width = int(self.data.at[row, "Width (mm)"]) \
+            if self.data.at[row, "Width (mm)"] else None
+        height = int(self.data.at[row, "Height (mm)"]) \
+            if self.data.at[row, "Height (mm)"] else None
+        page_count = int(self.data.at[row, "no of pages"]) \
+            if self.data.at[row, "no of pages"] else None
+        page_breakdown = self.data.at[row, "pages"] \
+            if self.data.at[row, "pages"] else None
 
         work = {
             "workType": self.work_types[
@@ -73,10 +81,10 @@ class OBPBookLoader(BookLoader):
             "doi": doi,
             "publicationDate": publication_date,
             "place": "Cambridge, UK",
-            "width": int(self.data.at[row, "Width (mm)"]),
-            "height": int(self.data.at[row, "Height (mm)"]),
-            "pageCount": int(self.data.at[row, "no of pages"]),
-            "pageBreakdown": self.data.at[row, "pages"],
+            "width": width,
+            "height": height,
+            "pageCount": page_count,
+            "pageBreakdown": page_breakdown,
             "imageCount": image_count,
             "tableCount": table_count,
             "audioCount": audio_count,
