@@ -296,7 +296,10 @@ class OBPBookLoader(BookLoader):
                 "contributionType": contribution_type,
                 "mainContribution": main,
                 "biography": None,
-                "institution": None
+                "institution": None,
+                "firstName": name,
+                "lastName": surname,
+                "fullName": fullname
             }
             self.thoth.create_contribution(contribution)
 

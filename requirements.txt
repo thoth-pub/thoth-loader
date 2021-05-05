@@ -1,4 +1,4 @@
-thothlibrary==0.2.0
+thothlibrary==0.3.0
 pandas==1.0.1
 isbn-hyphenate==1.0.4
 web.py==0.40-dev1
