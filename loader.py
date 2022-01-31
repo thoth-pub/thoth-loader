@@ -24,7 +24,7 @@ ARGS = [
         "val": "--client-url",
         "dest": "client_url",
         "action": "store",
-        "default": "http://localhost:8080/graphql",
+        "default": "https://api.thoth.pub/graphql",
         "help": "Thoth's GraphQL endpoint URL, including '/graphql'"
     }, {
         "val": "--email",
