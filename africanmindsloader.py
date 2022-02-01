@@ -13,16 +13,15 @@ class AfricanMindsBookLoader(BookLoader):
     def run(self):
         """Process CSV and call Thoth to insert its data"""
         for row in self.data.index:
-            work = self.get_work(row, self.imprint_id)
+            work = self.get_work(row)
             try:
                 work_id = self.thoth.work_by_doi(work.doi).workId
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             print("workId: {}".format(work_id))
 
-
     # pylint: disable=too-many-locals
-    def get_work(self, row, imprint_id):
+    def get_work(self, row):
         """Returns a dictionary with all attributes of a 'work'
 
         row: current row number
@@ -38,6 +37,8 @@ class AfricanMindsBookLoader(BookLoader):
             if self.data.at[row, "work_status"] else "ACTIVE"
         publication_date = str(self.data.at[row, "publication_date"]) \
             if self.data.at[row, "publication_date"] else None
+        publication_place = str(self.data.at[row, "publication_place"]) \
+            if self.data.at[row, "publication_place"] else None
         oclc = str(self.data.at[row, "oclc"]) \
             if self.data.at[row, "oclc"] else None
         lccn = str(self.data.at[row, "lccn"]) \
@@ -87,10 +88,10 @@ class AfricanMindsBookLoader(BookLoader):
             "subtitle": title["subtitle"],
             "reference": None,
             "edition": edition,
-            "imprintId": imprint_id,
+            "imprintId": self.imprint_id,
             "doi": doi,
             "publicationDate": publication_date,
-            "place": "Cambridge, UK",
+            "place": publication_place,
             "width": width,
             "height": height,
             "pageCount": page_count,
