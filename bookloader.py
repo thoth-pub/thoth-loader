@@ -64,12 +64,19 @@ class BookLoader():
 
     def __init__(self, metadata_file, client_url, email, password):
         self.metadata_file = metadata_file
-        self.thoth = ThothClient(client_url)
+        self.thoth = ThothClient(client_url, version="0.6.0")
         self.thoth.login(email, password)
 
         self.data = self.prepare_file()
-        self.publisher_id = self.create_publisher()
-        self.imprint_id = self.create_imprint()
+        publishers = self.thoth.publishers(search=self.publisher_name)
+        try:
+            self.publisher_id = publishers[0].publisherId
+        except (IndexError, AttributeError):
+            self.publisher_id = self.create_publisher()
+        try:
+            self.imprint_id = publishers[0].imprints[0].imprintId
+        except (IndexError, AttributeError):
+            self.imprint_id = self.create_imprint()
 
     def prepare_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
