@@ -119,6 +119,16 @@ class BookLoader():
         return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
 
     @staticmethod
+    def split_title(full_title):
+        """Return a dictionary that includes the title and the subtitle"""
+        subtitle = None
+        try:
+            title, subtitle = re.split(':', full_title)
+        except ValueError:
+            title = full_title
+        return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
+
+    @staticmethod
     def in_to_mm(inches):
         """Return a rounded conversion to milimetres from inches"""
         try:
