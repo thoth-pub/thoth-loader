@@ -27,7 +27,7 @@ Available modes, depending on publisher input: `OBP` (Open Book Publishers), `pu
 ### Live Thoth API
 ```
 docker run --rm \
-    -v /path/to/local/metadata.csv:/usr/src/app/metadata.csv
+    -v /path/to/local/metadata.csv:/usr/src/app/metadata.csv \
     openbookpublishers/thoth-loader \
     ./loader.py \
         --file /usr/src/app/metadata.csv \
@@ -39,13 +39,13 @@ docker run --rm \
 ### Local Thoth API
 ```
 docker run --rm \
-    --network="host"
-    --volume /path/to/local/metadata.csv:/usr/src/app/metadata.csv
+    --network="host" \
+    --volume /tmp/metadata.csv:/usr/src/app/metadata.csv \
     openbookpublishers/thoth-loader \
     ./loader.py \
         --file /usr/src/app/metadata.csv \
         --mode ${mode} \
         --email ${email} \
         --password ${password} \
-        --client-url http://127.0.0.1:8080/graphql
+        --client-url http://127.0.0.1:8000
 ```
