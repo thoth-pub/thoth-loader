@@ -125,12 +125,6 @@ class AfricanMindsBookLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        # create cache of all existing contributors
-        for c in self.thoth.contributors():
-            self.all_contributors[c.fullName] = c.contributorId
-            if c.orcid:
-                self.all_contributors[c.orcid] = c.contributorId
-
         # [(type, first_name, last_name, institution, orcid)]
         # create list of all instances of "(type, [...])" without brackets
         column = self.data.at[row, "contributions"]
@@ -147,9 +141,9 @@ class AfricanMindsBookLoader(BookLoader):
             last_name = contribution[2].strip()
             full_name = "{} {}".format(first_name, last_name)
             orcid = None
-            institution = None
+            institution_name = None
             if len(contribution) == 5:
-                institution = contribution[3].strip()
+                institution_name = contribution[3].strip()
                 orcid = contribution[4].strip()
             if len(contribution) == 4:
                 # fourth attribute may be institution or orcid
@@ -157,7 +151,7 @@ class AfricanMindsBookLoader(BookLoader):
                 try:
                     orcid = self.orcid_regex.search(unknown).group(0)
                 except AttributeError:
-                    institution = unknown
+                    institution_name = unknown
             orcid = "https://orcid.org/{}".format(orcid)
             contributor = {
                 "firstName": first_name,
@@ -189,3 +183,23 @@ class AfricanMindsBookLoader(BookLoader):
                 "fullName": full_name
             }
             contribution_id = self.thoth.create_contribution(contribution)
+
+            # retrieve institution or create if it doesn't exist
+            if institution_name in self.all_institutions:
+                institution_id = self.all_institutions[institution_name]
+            else:
+                institution = {
+                    "institutionName": institution_name,
+                    "institutionDoi": None,
+                    "ror": None,
+                    "countryCode": None
+                }
+                institution_id = self.thoth.create_institution(institution)
+                self.all_institutions[institution_name] = institution_id
+            affiliation = {
+                "contributionId": contribution_id,
+                "institutionId": institution_id,
+                "affiliationOrdinal": 1,
+                "position": None
+            }
+            self.thoth.create_affiliation(affiliation)
