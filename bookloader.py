@@ -69,7 +69,7 @@ class BookLoader():
 
     def __init__(self, metadata_file, client_url, email, password):
         self.metadata_file = metadata_file
-        self.thoth = ThothClient(client_url, version="0.6.0")
+        self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
 
         self.data = self.prepare_file()
