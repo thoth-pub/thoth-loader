@@ -19,7 +19,7 @@ class AfricanMindsBookLoader(BookLoader):
             try:
                 work_id = self.thoth.work_by_doi(work.doi).workId
             except (IndexError, AttributeError, ThothError):
-                work_id = self.thoth.create_work(work)
+                work_id = self.thoth.create_work(work, units="MM")
             print("workId: {}".format(work_id))
 
             self.create_contributors(row, work_id)
