@@ -142,7 +142,8 @@ class BookLoader():
             title, subtitle = re.split(':', full_title)
         except ValueError:
             title = full_title
-        return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
+        return {"title": title.strip(), "subtitle": subtitle.strip(),
+                "fullTitle": full_title}
 
     @staticmethod
     def in_to_mm(inches):
