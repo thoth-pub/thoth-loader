@@ -133,7 +133,7 @@ class AfricanMindsBookLoader(BookLoader):
 
         # [(type, first_name, last_name, institution, orcid)]
         # create list of all instances of "(type, [...])" without brackets
-        column = self.data.at["contributions"]
+        column = self.data.at[row, "contributions"]
         contributions = re.findall('\\((.*?)\\)', column)
         for index, contribution_string in enumerate(contributions):
             # we are now left with an ordered list of fields, the first three
