@@ -1,6 +1,6 @@
 """Load African Minds metadata into Thoth"""
-import json
 import re
+import pandas as pd
 
 from bookloader import BookLoader
 from thothlibrary import ThothError
@@ -37,56 +37,56 @@ class AfricanMindsBookLoader(BookLoader):
         copyright_holder = self.data.at[row, 'copyright_holder']
         work_type = self.work_types[self.data.at[row, "work_type"]]
 
-        work_status = self.work_statuses[self.data.at[row, "work_status"]] \
-            if self.data.at[row, "work_status"] else "ACTIVE"
+        work_status = self.data.at[row, "work_status"] \
+            if pd.notna(self.data.at[row, "work_status"]) else "Active"
         publication_date = str(self.data.at[row, "publication_date"]) \
-            if self.data.at[row, "publication_date"] else None
+            if pd.notna(self.data.at[row, "publication_date"]) else None
         publication_place = str(self.data.at[row, "publication_place"]) \
-            if self.data.at[row, "publication_place"] else None
+            if pd.notna(self.data.at[row, "publication_place"]) else None
         oclc = str(self.data.at[row, "oclc"]) \
-            if self.data.at[row, "oclc"] else None
+            if pd.notna(self.data.at[row, "oclc"]) else None
         lccn = str(self.data.at[row, "lccn"]) \
-            if self.data.at[row, "lccn"] else None
+            if pd.notna(self.data.at[row, "lccn"]) else None
         image_count = int(self.data.at[row, "image_count"]) \
-            if self.data.at[row, "image_count"] else None
+            if pd.notna(self.data.at[row, "image_count"]) else None
         table_count = int(self.data.at[row, "table_count"]) \
-            if self.data.at[row, "table_count"] else None
+            if pd.notna(self.data.at[row, "table_count"]) else None
         audio_count = int(self.data.at[row, "audio_count"]) \
-            if self.data.at[row, "audio_count"] else None
+            if pd.notna(self.data.at[row, "audio_count"]) else None
         video_count = int(self.data.at[row, "video_count"]) \
-            if self.data.at[row, "video_count"] else None
+            if pd.notna(self.data.at[row, "video_count"]) else None
         width = int(self.data.at[row, "width (mm)"]) \
-            if self.data.at[row, "width (mm)"] else None
+            if pd.notna(self.data.at[row, "width (mm)"]) else None
         height = int(self.data.at[row, "height (mm)"]) \
-            if self.data.at[row, "height (mm)"] else None
+            if pd.notna(self.data.at[row, "height (mm)"]) else None
         page_count = int(self.data.at[row, "page_count"]) \
-            if self.data.at[row, "page_count"] else None
+            if pd.notna(self.data.at[row, "page_count"]) else None
         page_breakdown = self.data.at[row, "page_breakdown"] \
-            if self.data.at[row, "page_breakdown"] else None
+            if pd.notna(self.data.at[row, "page_breakdown"]) else None
         edition = int(self.data.at[row, "edition"]) \
-            if self.data.at[row, "edition"] else 1
+            if pd.notna(self.data.at[row, "edition"]) else 1
         license_url = \
             self.data.at[row, "license"] \
-            if self.data.at[row, "license"] \
+            if pd.notna(self.data.at[row, "license"]) \
             else None
         short_abstract = \
             self.data.at[row, "short_abstract"] \
-            if self.data.at[row, "short_abstract)"] \
+            if pd.notna(self.data.at[row, "short_abstract"]) \
             else None
         long_abstract = self.data.at[row, "long_abstract"] \
-            if self.data.at[row, "long_abstract"] else None
+            if pd.notna(self.data.at[row, "long_abstract"]) else None
         toc = self.data.at[row, "toc"] \
-            if self.data.at[row, "toc"] else None
+            if pd.notna(self.data.at[row, "toc"]) else None
         cover = self.data.at[row, "cover_url"] \
-            if self.data.at[row, "cover_url"] else None
+            if pd.notna(self.data.at[row, "cover_url"]) else None
         cover_caption = self.data.at[row, "cover_caption"] \
-            if self.data.at[row, "cover_caption"] else None
+            if pd.notna(self.data.at[row, "cover_caption"]) else None
         landing = self.data.at[row, "landing_page"] \
-            if self.data.at[row, "landing_page"] else None
+            if pd.notna(self.data.at[row, "landing_page"]) else None
 
         work = {
             "workType": work_type,
-            "workStatus": work_status,
+            "workStatus": self.work_statuses[work_status],
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
