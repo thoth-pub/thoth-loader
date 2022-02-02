@@ -9,7 +9,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-## Usage
+## CLI Usage
 
 Available modes, depending on publisher input: `OBP` (Open Book Publishers), `punctum` (punctum books), `AM` (African Minds)
 
@@ -23,3 +23,29 @@ Available modes, depending on publisher input: `OBP` (Open Book Publishers), `pu
 ./loader.py --file ./data/metadata.csv --mode ${mode} --email ${email} --password ${password} --client-url http://localhost:8080/graphql
 ```
 
+## Docker Usage
+### Live Thoth API
+```
+docker run --rm \
+    -v /path/to/local/metadata.csv:/usr/src/app/metadata.csv
+    openbookpublishers/thoth-loader \
+    ./loader.py \
+        --file /usr/src/app/metadata.csv \
+        --mode ${mode} \
+        --email ${email} \
+        --password ${password}
+```
+
+### Local Thoth API
+```
+docker run --rm \
+    --network="host"
+    --volume /path/to/local/metadata.csv:/usr/src/app/metadata.csv
+    openbookpublishers/thoth-loader \
+    ./loader.py \
+        --file /usr/src/app/metadata.csv \
+        --mode ${mode} \
+        --email ${email} \
+        --password ${password} \
+        --client-url http://127.0.0.1:8080/graphql
+```
