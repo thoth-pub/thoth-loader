@@ -1,4 +1,6 @@
 """Load African Minds metadata into Thoth"""
+import json
+import re
 
 from bookloader import BookLoader
 from thothlibrary import ThothError
@@ -19,6 +21,8 @@ class AfricanMindsBookLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             print("workId: {}".format(work_id))
+
+            self.create_contributors(row, work_id)
 
     # pylint: disable=too-many-locals
     def get_work(self, row):
@@ -113,3 +117,75 @@ class AfricanMindsBookLoader(BookLoader):
             "coverCaption": cover_caption,
         }
         return work
+
+    def create_contributors(self, row, work_id):
+        """Creates all contributions associated with the current work
+
+        row: current row number
+
+        work_id: previously obtained ID of the current work
+        """
+        # create cache of all existing contributors
+        for c in self.thoth.contributors():
+            self.all_contributors[c.fullName] = c.contributorId
+            if c.orcid:
+                self.all_contributors[c.orcid] = c.contributorId
+
+        # [(type, first_name, last_name, institution, orcid)]
+        # create list of all instances of "(type, [...])" without brackets
+        column = self.data.at["contributions"]
+        contributions = re.findall('\\((.*?)\\)', column)
+        for index, contribution_string in enumerate(contributions):
+            # we are now left with an ordered list of fields, the first three
+            # are always present: type, first_name, last_name.
+            # followed by optional institution and orcid.
+            # NB. Those without an institution and an orcid will have format:
+            # type, first_name, last_name, orcid
+            contribution = re.split(',', contribution_string)
+            contribution_type = self.contribution_types[contribution[0].strip()]
+            first_name = contribution[1].strip()
+            last_name = contribution[2].strip()
+            full_name = "{} {}".format(first_name, last_name)
+            orcid = None
+            institution = None
+            if len(contribution) == 5:
+                institution = contribution[3].strip()
+                orcid = contribution[4].strip()
+            if len(contribution) == 4:
+                # fourth attribute may be institution or orcid
+                unknown = contribution[3].strip()
+                try:
+                    orcid = self.orcid_regex.search(unknown).group(0)
+                except AttributeError:
+                    institution = unknown
+            orcid = "https://orcid.org/{}".format(orcid)
+            contributor = {
+                "firstName": first_name,
+                "lastName": last_name,
+                "fullName": full_name,
+                "orcid": orcid,
+                "website": None
+            }
+            if orcid and orcid in self.all_contributors:
+                contributor_id = self.all_contributors[orcid]
+            elif full_name in self.all_contributors:
+                contributor_id = self.all_contributors[full_name]
+            else:
+                contributor_id = self.thoth.create_contributor(contributor)
+                # cache new contributor
+                self.all_contributors[full_name] = contributor_id
+                if orcid:
+                    self.all_contributors[orcid] = contributor_id
+
+            contribution = {
+                "workId": work_id,
+                "contributorId": contributor_id,
+                "contributionType": contribution_type,
+                "mainContribution": True,
+                "contributionOrdinal": index + 1,
+                "biography": None,
+                "firstName": first_name,
+                "lastName": last_name,
+                "fullName": full_name
+            }
+            contribution_id = self.thoth.create_contribution(contribution)
