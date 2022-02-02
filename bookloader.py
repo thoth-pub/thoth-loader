@@ -50,7 +50,9 @@ class BookLoader():
     }
     contribution_types = {
         "Author": "AUTHOR",
+        "AUTHOR": "AUTHOR",
         "Editor": "EDITOR",
+        "EDITOR": "EDITOR",
         "Translator": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
         "Introduction": "INTRODUCTION_BY",
