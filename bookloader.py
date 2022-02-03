@@ -52,6 +52,7 @@ class BookLoader():
     contribution_types = {
         "Author": "AUTHOR",
         "AUTHOR": "AUTHOR",
+        "AUHTOR": "AUTHOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
         "Translator": "TRANSLATOR",
@@ -127,6 +128,15 @@ class BookLoader():
             else "false"
 
     @staticmethod
+    def get_work_contributions(work):
+        work_contributions = {}
+        for c in work.contributions:
+            work_contributions[c.fullName] = c.contributionId
+            if c.contributor.orcid:
+                work_contributions[c.contributor.orcid] = c.contributionId
+        return work_contributions
+
+    @staticmethod
     def sanitise_title(title, subtitle):
         """Return a dictionary that includes the full title"""
         character = " " if title.endswith("?") else ": "
@@ -140,10 +150,11 @@ class BookLoader():
         subtitle = None
         try:
             title, subtitle = re.split(':', full_title)
+            title = title.strip()
+            subtitle = subtitle.strip()
         except ValueError:
             title = full_title
-        return {"title": title.strip(), "subtitle": subtitle.strip(),
-                "fullTitle": full_title}
+        return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
 
     @staticmethod
     def in_to_mm(inches):
@@ -210,3 +221,8 @@ class BookLoader():
         except AttributeError:
             audio_count = 0
         return audio_count, video_count
+
+    @staticmethod
+    def sanitise_string(string):
+        return string.replace('\n', '').replace('\r', '').strip()
+

@@ -21,8 +21,8 @@ class AfricanMindsBookLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work, units="MM")
             print("workId: {}".format(work_id))
-
-            self.create_contributors(row, work_id)
+            work = self.thoth.work_by_id(work_id)
+            self.create_contributors(row, work)
 
     # pylint: disable=too-many-locals
     def get_work(self, row):
@@ -33,7 +33,7 @@ class AfricanMindsBookLoader(BookLoader):
         imprint_id: previously obtained ID of this work's imprint
         """
         title = self.split_title(self.data.at[row, 'title'])
-        doi = self.data.at[row, 'doi']
+        doi = self.sanitise_string(self.data.at[row, 'doi'])
         copyright_holder = self.data.at[row, 'copyright_holder']
         work_type = self.work_types[self.data.at[row, "work_type"]]
 
@@ -118,7 +118,7 @@ class AfricanMindsBookLoader(BookLoader):
         }
         return work
 
-    def create_contributors(self, row, work_id):
+    def create_contributors(self, row, work):
         """Creates all contributions associated with the current work
 
         row: current row number
@@ -129,6 +129,7 @@ class AfricanMindsBookLoader(BookLoader):
         # create list of all instances of "(type, [...])" without brackets
         column = self.data.at[row, "contributions"]
         contributions = re.findall('\\((.*?)\\)', column)
+        work_contributions = self.get_work_contributions(work)
         for index, contribution_string in enumerate(contributions):
             # we are now left with an ordered list of fields, the first three
             # are always present: type, first_name, last_name.
@@ -136,10 +137,18 @@ class AfricanMindsBookLoader(BookLoader):
             # NB. Those without an institution and an orcid will have format:
             # type, first_name, last_name, orcid
             contribution = re.split(',', contribution_string)
-            contribution_type = self.contribution_types[contribution[0].strip()]
-            first_name = contribution[1].strip()
-            last_name = contribution[2].strip()
-            full_name = "{} {}".format(first_name, last_name)
+            contribution_type = contribution[0].strip().upper()
+            contribution_type = self.contribution_types[contribution_type]
+            if len(contribution) == 2:
+                # There's only one name for the author, potentially an
+                # organisation
+                first_name = None
+                last_name = contribution[1].strip()
+                full_name = last_name
+            else:
+                first_name = contribution[1].strip()
+                last_name = contribution[2].strip()
+                full_name = "{} {}".format(first_name, last_name)
             orcid = None
             institution_name = None
             if len(contribution) == 5:
@@ -152,7 +161,8 @@ class AfricanMindsBookLoader(BookLoader):
                     orcid = self.orcid_regex.search(unknown).group(0)
                 except AttributeError:
                     institution_name = unknown
-            orcid = "https://orcid.org/{}".format(orcid)
+            if orcid:
+                orcid = "https://orcid.org/{}".format(orcid)
             contributor = {
                 "firstName": first_name,
                 "lastName": last_name,
@@ -160,6 +170,11 @@ class AfricanMindsBookLoader(BookLoader):
                 "orcid": orcid,
                 "website": None
             }
+            # skip this contribution if already in the work
+            if orcid in work_contributions or full_name in work_contributions:
+                continue
+
+            # contribution not in work, try to get contributor or create it
             if orcid and orcid in self.all_contributors:
                 contributor_id = self.all_contributors[orcid]
             elif full_name in self.all_contributors:
@@ -172,7 +187,7 @@ class AfricanMindsBookLoader(BookLoader):
                     self.all_contributors[orcid] = contributor_id
 
             contribution = {
-                "workId": work_id,
+                "workId": work.workId,
                 "contributorId": contributor_id,
                 "contributionType": contribution_type,
                 "mainContribution": "true",
@@ -184,22 +199,23 @@ class AfricanMindsBookLoader(BookLoader):
             }
             contribution_id = self.thoth.create_contribution(contribution)
 
-            # retrieve institution or create if it doesn't exist
-            if institution_name in self.all_institutions:
-                institution_id = self.all_institutions[institution_name]
-            else:
-                institution = {
-                    "institutionName": institution_name,
-                    "institutionDoi": None,
-                    "ror": None,
-                    "countryCode": None
+            if institution_name:
+                # retrieve institution or create if it doesn't exist
+                if institution_name in self.all_institutions:
+                    institution_id = self.all_institutions[institution_name]
+                else:
+                    institution = {
+                        "institutionName": institution_name,
+                        "institutionDoi": None,
+                        "ror": None,
+                        "countryCode": None
+                    }
+                    institution_id = self.thoth.create_institution(institution)
+                    self.all_institutions[institution_name] = institution_id
+                affiliation = {
+                    "contributionId": contribution_id,
+                    "institutionId": institution_id,
+                    "affiliationOrdinal": 1,
+                    "position": None
                 }
-                institution_id = self.thoth.create_institution(institution)
-                self.all_institutions[institution_name] = institution_id
-            affiliation = {
-                "contributionId": contribution_id,
-                "institutionId": institution_id,
-                "affiliationOrdinal": 1,
-                "position": None
-            }
-            self.thoth.create_affiliation(affiliation)
+                self.thoth.create_affiliation(affiliation)
