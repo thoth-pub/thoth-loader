@@ -7,10 +7,12 @@ Call custom, business specific, workflows to ingest metdata into Thoth.
 import argparse
 from obploader import OBPBookLoader
 from punctumloader import PunctumBookLoader
+from africanmindsloader import AfricanMindsBookLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
-    "punctum": PunctumBookLoader
+    "punctum": PunctumBookLoader,
+    "AM": AfricanMindsBookLoader,
 }
 
 ARGS = [
@@ -24,7 +26,7 @@ ARGS = [
         "val": "--client-url",
         "dest": "client_url",
         "action": "store",
-        "default": "http://localhost:8080/graphql",
+        "default": "https://api.thoth.pub/graphql",
         "help": "Thoth's GraphQL endpoint URL, including '/graphql'"
     }, {
         "val": "--email",

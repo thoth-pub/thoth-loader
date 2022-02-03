@@ -27,15 +27,18 @@ class BookLoader():
     publisher_shortname = None
     publisher_url = None
     all_contributors = {}
+    all_institutions = {}
     all_series = {}
     encoding = "utf-8"
     header = 0
     separation = ","
     work_types = {
         "Monograph": "MONOGRAPH",
+        "MONOGRAPH": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
         "Edited Book": "EDITED_BOOK",
+        "EDITED_BOOK": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
     }
@@ -48,7 +51,10 @@ class BookLoader():
     }
     contribution_types = {
         "Author": "AUTHOR",
+        "AUTHOR": "AUTHOR",
+        "AUHTOR": "AUTHOR",
         "Editor": "EDITOR",
+        "EDITOR": "EDITOR",
         "Translator": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
         "Introduction": "INTRODUCTION_BY",
@@ -68,8 +74,26 @@ class BookLoader():
         self.thoth.login(email, password)
 
         self.data = self.prepare_file()
-        self.publisher_id = self.create_publisher()
-        self.imprint_id = self.create_imprint()
+        publishers = self.thoth.publishers(search=self.publisher_name)
+        try:
+            self.publisher_id = publishers[0].publisherId
+        except (IndexError, AttributeError):
+            self.publisher_id = self.create_publisher()
+        try:
+            self.imprint_id = publishers[0].imprints[0].imprintId
+        except (IndexError, AttributeError):
+            self.imprint_id = self.create_imprint()
+
+        # create cache of all existing contributors
+        for c in self.thoth.contributors(limit=99999):
+            self.all_contributors[c.fullName] = c.contributorId
+            if c.orcid:
+                self.all_contributors[c.orcid] = c.contributorId
+        # create cache of all existing institutions
+        for i in self.thoth.institutions(limit=99999):
+            self.all_institutions[i.institutionName] = i.institutionId
+            if i.ror:
+                self.all_institutions[i.ror] = i.institutionId
 
     def prepare_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
@@ -104,11 +128,32 @@ class BookLoader():
             else "false"
 
     @staticmethod
+    def get_work_contributions(work):
+        work_contributions = {}
+        for c in work.contributions:
+            work_contributions[c.fullName] = c.contributionId
+            if c.contributor.orcid:
+                work_contributions[c.contributor.orcid] = c.contributionId
+        return work_contributions
+
+    @staticmethod
     def sanitise_title(title, subtitle):
         """Return a dictionary that includes the full title"""
         character = " " if title.endswith("?") else ": "
         full_title = character.join([title, subtitle]) \
             if subtitle else title
+        return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
+
+    @staticmethod
+    def split_title(full_title):
+        """Return a dictionary that includes the title and the subtitle"""
+        subtitle = None
+        try:
+            title, subtitle = re.split(':', full_title)
+            title = title.strip()
+            subtitle = subtitle.strip()
+        except ValueError:
+            title = full_title
         return {"title": title, "subtitle": subtitle, "fullTitle": full_title}
 
     @staticmethod
@@ -176,3 +221,8 @@ class BookLoader():
         except AttributeError:
             audio_count = 0
         return audio_count, video_count
+
+    @staticmethod
+    def sanitise_string(string):
+        return string.replace('\n', '').replace('\r', '').strip()
+
