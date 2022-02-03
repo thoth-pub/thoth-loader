@@ -84,12 +84,12 @@ class BookLoader():
             self.imprint_id = self.create_imprint()
 
         # create cache of all existing contributors
-        for c in self.thoth.contributors():
+        for c in self.thoth.contributors(limit=99999):
             self.all_contributors[c.fullName] = c.contributorId
             if c.orcid:
                 self.all_contributors[c.orcid] = c.contributorId
         # create cache of all existing institutions
-        for i in self.thoth.institutions():
+        for i in self.thoth.institutions(limit=99999):
             self.all_institutions[i.institutionName] = i.institutionId
             if i.ror:
                 self.all_institutions[i.ror] = i.institutionId

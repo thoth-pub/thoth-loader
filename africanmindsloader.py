@@ -17,7 +17,7 @@ class AfricanMindsBookLoader(BookLoader):
         for row in self.data.index:
             work = self.get_work(row)
             try:
-                work_id = self.thoth.work_by_doi(work.doi).workId
+                work_id = self.thoth.work_by_doi(work['doi']).workId
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work, units="MM")
             print("workId: {}".format(work_id))
@@ -175,7 +175,7 @@ class AfricanMindsBookLoader(BookLoader):
                 "workId": work_id,
                 "contributorId": contributor_id,
                 "contributionType": contribution_type,
-                "mainContribution": True,
+                "mainContribution": "true",
                 "contributionOrdinal": index + 1,
                 "biography": None,
                 "firstName": first_name,
