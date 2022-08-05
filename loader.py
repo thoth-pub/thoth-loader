@@ -5,13 +5,16 @@ Call custom, business specific, workflows to ingest metdata into Thoth.
 """
 
 import argparse
+import logging
 from obploader import OBPBookLoader
 from punctumloader import PunctumBookLoader
+from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
     "punctum": PunctumBookLoader,
+    "punctum-chapters": PunctumChapterLoader,
     "AM": AfricanMindsBookLoader,
 }
 
@@ -71,6 +74,8 @@ def get_arguments():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,
+                        format='%(levelname)s:%(asctime)s: %(message)s')
     ARGUMENTS = get_arguments()
     run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url,
         ARGUMENTS.email, ARGUMENTS.password)
