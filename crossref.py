@@ -14,7 +14,6 @@ class CrossrefClient:
             url = "%s/works/%s" % (self.endpoint, doi)
             res = requests.get(url)
             if res.status_code == 404:
-                logging.info("%s not found in Crossref" % doi)
                 return False
             self.retry_count = 0
             return res.json()['message']

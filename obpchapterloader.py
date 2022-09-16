@@ -32,6 +32,11 @@ class ObpChapterLoader(CrossrefChapterLoader):
                     skip_count += 1
                     continue
 
+                # we issue DOIs for things others than chapters (e.g. resources) – skip them
+                if metadata['type'] != "book-chapter":
+                    logging.warning('Skipping (%s) %s' % (metadata['type'], doi))
+                    continue
+
                 chapter = self.get_work(full_doi, metadata, book)
                 logging.info('Chapter %s: %s' % (relation_ordinal, chapter['fullTitle']))
                 work_id = self.thoth.create_work(chapter)
