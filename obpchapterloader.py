@@ -12,8 +12,9 @@ class ObpChapterLoader(CrossrefChapterLoader):
 
     def run(self):
         """Obtain all books from Thoth, query Crossref to obtain chapter metadata and insert it into Thoth"""
-        for book in self.all_books():
-            logging.info('Book: %s' % book['fullTitle'])
+        all_books = self.all_books()
+        for index, book in enumerate(all_books):
+            logging.info('Book (%s/%s): %s' % (index + 1, len(all_books), book['fullTitle']))
             book_doi = book['doi']
             book_simple_doi = CrossrefChapterLoader.simple_doi(book_doi)
             relation_ordinal = 1
@@ -30,6 +31,12 @@ class ObpChapterLoader(CrossrefChapterLoader):
                 metadata = self.get_crossref_metadata(doi)
                 if not metadata:
                     skip_count += 1
+                    continue
+
+                # There are a few deleted DOIs under the publisher "Test accounts" – skip them
+                if metadata['publisher'] != self.publisher_name:
+                    logging.warning('Skipping different publisher (%s) %s' % (metadata['publisher'], doi))
+                    relation_ordinal += 1
                     continue
 
                 # we issue DOIs for things others than chapters (e.g. resources) – skip them

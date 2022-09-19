@@ -18,7 +18,6 @@ class CrossrefChapterLoader:
     encoding = "utf-8"
     header = 0
     separation = ","
-    main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
 
