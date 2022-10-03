@@ -8,6 +8,7 @@ import argparse
 import logging
 from obploader import OBPBookLoader
 from obpchapterloader import ObpChapterLoader
+from obpchapterabstractloader import ObpChapterAbstractLoader
 from punctumloader import PunctumBookLoader
 from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
@@ -15,6 +16,7 @@ from africanmindsloader import AfricanMindsBookLoader
 LOADERS = {
     "OBP": OBPBookLoader,
     "OBP-chapters": ObpChapterLoader,
+    "OBP-chapter-abstracts": ObpChapterAbstractLoader,
     "punctum": PunctumBookLoader,
     "punctum-chapters": PunctumChapterLoader,
     "AM": AfricanMindsBookLoader,
