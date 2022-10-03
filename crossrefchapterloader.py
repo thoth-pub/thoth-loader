@@ -86,7 +86,7 @@ class CrossrefChapterLoader:
 
     @staticmethod
     def simple_doi(doi):
-        return doi.replace("https://doi.org/", "")
+        return doi.replace("https://doi.org/", "").replace("http://dx.doi.org/", "")
 
     @staticmethod
     def full_doi(doi):
