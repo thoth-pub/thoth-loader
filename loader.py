@@ -7,6 +7,7 @@ Call custom, business specific, workflows to ingest metdata into Thoth.
 import argparse
 import logging
 from obploader import OBPBookLoader
+from obpchapterloadercsv import ObpChapterLoaderCsv
 from obpchapterloadercrossref import ObpChapterLoaderCrossref
 from obpchapterabstractloader import ObpChapterAbstractLoader
 from punctumloader import PunctumBookLoader
@@ -15,6 +16,7 @@ from africanmindsloader import AfricanMindsBookLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
+    "OBP-chapters-csv": ObpChapterLoaderCsv,
     "OBP-chapters-crossref": ObpChapterLoaderCrossref,
     "OBP-chapter-abstracts": ObpChapterAbstractLoader,
     "punctum": PunctumBookLoader,
