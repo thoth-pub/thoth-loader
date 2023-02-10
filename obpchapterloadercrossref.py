@@ -6,7 +6,7 @@ from crossrefchapterloader import CrossrefChapterLoader
 from bookloader import BookLoader
 
 
-class ObpChapterLoader(CrossrefChapterLoader):
+class ObpChapterLoaderCrossref(CrossrefChapterLoader):
     """OBP specific logic to ingest chapter metadata from Crossref into Thoth"""
     publisher_name = "Open Book Publishers"
 
