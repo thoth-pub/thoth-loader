@@ -1,3 +1,5 @@
-thothlibrary==0.13.1
-pandas==1.4.3
+thothlibrary==0.20.0
+pandas==2.0.2
+requests==2.31.0
 isbn-hyphenate==1.0.4
+numpy==1.25.0

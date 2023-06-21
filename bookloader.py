@@ -51,16 +51,23 @@ class BookLoader():
     }
     contribution_types = {
         "Author": "AUTHOR",
+        "author": "AUTHOR",
         "AUTHOR": "AUTHOR",
         "AUHTOR": "AUTHOR",
+        "A01": "AUTHOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
+        "B01": "EDITOR",
+        "B02": "EDITOR",
+        "C99": "EDITOR",
         "Translator": "TRANSLATOR",
+        "B06": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
         "Introduction": "INTRODUCTION_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR"
     }
+
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
@@ -183,6 +190,8 @@ class BookLoader():
             if "-" in str(isbn):
                 return str(isbn)
             return isbn_hyphenate.hyphenate(str(int(isbn)))
+        except ValueError:
+            return None
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
