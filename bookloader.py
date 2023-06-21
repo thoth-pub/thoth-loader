@@ -190,6 +190,8 @@ class BookLoader():
             if "-" in str(isbn):
                 return str(isbn)
             return isbn_hyphenate.hyphenate(str(int(isbn)))
+        except ValueError:
+            return None
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
