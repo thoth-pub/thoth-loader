@@ -3,6 +3,8 @@
 import re
 import pandas as pd
 import isbn_hyphenate
+import pymarc
+import roman as roman
 from thothlibrary import ThothClient
 
 
@@ -20,8 +22,10 @@ class Deduper():  # pylint: disable=too-few-public-methods
         return "%s %d" % (header, self.headers[header])
 
 
-class BookLoader():
+class BookLoader:
     """Generic logic to ingest metadata from CSV into Thoth"""
+    allowed_formats = ["CSV", "MARCXML"]
+    import_format = "CSV"
     single_imprint = True
     publisher_name = None
     publisher_shortname = None
@@ -55,6 +59,7 @@ class BookLoader():
         "AUTHOR": "AUTHOR",
         "AUHTOR": "AUTHOR",
         "A01": "AUTHOR",
+        "editor": "EDITOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
         "B01": "EDITOR",
@@ -64,6 +69,7 @@ class BookLoader():
         "B06": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
         "Introduction": "INTRODUCTION_BY",
+        "writer of introduction": "INTRODUCTION_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR"
     }
@@ -76,11 +82,16 @@ class BookLoader():
     video_regex = re.compile(r'[0-9]{1,3} \(vid\)')
 
     def __init__(self, metadata_file, client_url, email, password):
+        if self.import_format not in self.allowed_formats:
+            raise
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
 
-        self.data = self.prepare_file()
+        if self.import_format == "CSV":
+            self.data = self.prepare_csv_file()
+        elif self.import_format == "MARCXML":
+            self.data = self.prepare_marcxml_file()
         publishers = self.thoth.publishers(search=self.publisher_name)
         try:
             self.publisher_id = publishers[0].publisherId
@@ -102,13 +113,18 @@ class BookLoader():
             if i.ror:
                 self.all_institutions[i.ror] = i.institutionId
 
-    def prepare_file(self):
+    def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
         frame = pd.read_csv(self.metadata_file, encoding=self.encoding,
                             header=self.header, sep=self.separation)
         frame = frame.where(pd.notnull(frame), None)
         frame = frame.rename(columns=Deduper())
         return frame
+
+    def prepare_marcxml_file(self):
+        """Read MARC XML"""
+        collection = pymarc.marcxml.parse_xml_to_array(self.metadata_file)
+        return collection
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""
@@ -234,4 +250,21 @@ class BookLoader():
     @staticmethod
     def sanitise_string(string):
         return string.replace('\n', '').replace('\r', '').strip()
+
+    @staticmethod
+    def parse_page_string(page_string):
+        """Return the number of pages and page breakdown from MARC 300 fields"""
+        matches = re.search(r'\((?:(\w+), )?(\d+) pages\)', page_string)
+        if matches:
+            roman_numeral = matches.group(1)
+            page_number = int(matches.group(2))
+            page_breakdown = None
+
+            if roman_numeral:
+                decimal_numeral = roman.fromRoman(roman_numeral.upper())
+                page_breakdown = f"{roman_numeral}+{page_number - decimal_numeral}"
+
+            return page_number, page_breakdown
+
+        return None, None
 
