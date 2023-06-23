@@ -13,6 +13,7 @@ from punctumloader import PunctumBookLoader
 from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
 from whploader import WHPLoader
+from uwploader import UWPLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -22,6 +23,7 @@ LOADERS = {
     "punctum-chapters": PunctumChapterLoader,
     "AM": AfricanMindsBookLoader,
     "WHP": WHPLoader,
+    "UWP": UWPLoader,
 }
 
 ARGS = [
