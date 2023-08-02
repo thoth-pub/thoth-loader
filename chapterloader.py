@@ -34,6 +34,8 @@ class ChapterLoader:
     header = 0
     separation = ","
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
+    contributors_limit = 99999
+    institutions_limit = 99999
     orcid_regex = re.compile(
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
 
@@ -59,12 +61,12 @@ class ChapterLoader:
             sys.exit(1)
 
         # create cache of all existing contributors
-        for c in self.thoth.contributors(limit=99999):
+        for c in self.thoth.contributors(limit=self.contributors_limit):
             self.all_contributors[c.fullName] = c.contributorId
             if c.orcid:
                 self.all_contributors[c.orcid] = c.contributorId
         # create cache of all existing institutions
-        for i in self.thoth.institutions(limit=99999):
+        for i in self.thoth.institutions(limit=self.institutions_limit):
             self.all_institutions[i.institutionName] = i.institutionId
             if i.ror:
                 self.all_institutions[i.ror] = i.institutionId
@@ -76,6 +78,14 @@ class ChapterLoader:
             return books[0]
         except (IndexError, AttributeError):
             logging.error('Book not found: \'%s\'' % title)
+            sys.exit(1)
+
+    def get_work_by_doi(self, doi):
+        """Query Thoth to find a work given its DOI"""
+        try:
+            return self.thoth.work_by_doi(doi)
+        except (IndexError, AttributeError):
+            logging.error('Work not found: \'%s\'' % doi)
             sys.exit(1)
 
     def prepare_file(self):

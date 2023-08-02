@@ -66,12 +66,16 @@ class BookLoader:
         "B02": "EDITOR",
         "C99": "EDITOR",
         "Translator": "TRANSLATOR",
+        "Photographer": "PHOTOGRAPHER",
+        "Illustrator": "ILLUSTRATOR",
         "B06": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
         "Introduction": "INTRODUCTION_BY",
         "writer of introduction": "INTRODUCTION_BY",
         "Preface": "PREFACE_BY",
-        "Music editor": "MUSIC_EDITOR"
+        "Music editor": "MUSIC_EDITOR",
+        "Research By": "RESEARCH_BY",
+        "Contributions By": "CONTRIBUTIONS_BY"
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
