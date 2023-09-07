@@ -5,6 +5,8 @@ import pandas as pd
 import isbn_hyphenate
 import pymarc
 import roman as roman
+from onix.book.v3_0.reference.strict import Onixmessage
+from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
 
 
@@ -24,7 +26,7 @@ class Deduper():  # pylint: disable=too-few-public-methods
 
 class BookLoader:
     """Generic logic to ingest metadata from CSV into Thoth"""
-    allowed_formats = ["CSV", "MARCXML"]
+    allowed_formats = ["CSV", "MARCXML", "ONIX3"]
     import_format = "CSV"
     single_imprint = True
     publisher_name = None
@@ -96,6 +98,8 @@ class BookLoader:
             self.data = self.prepare_csv_file()
         elif self.import_format == "MARCXML":
             self.data = self.prepare_marcxml_file()
+        elif self.import_format == "ONIX3":
+            self.data = self.prepare_onix3_file()
         publishers = self.thoth.publishers(search=self.publisher_name)
         try:
             self.publisher_id = publishers[0].publisherId
@@ -129,6 +133,12 @@ class BookLoader:
         """Read MARC XML"""
         collection = pymarc.marcxml.parse_xml_to_array(self.metadata_file)
         return collection
+
+    def prepare_onix3_file(self):
+        """Read ONIX 3.0"""
+        parser = XmlParser()
+        message = parser.parse(self.metadata_file, Onixmessage)
+        return message
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""
@@ -197,8 +207,10 @@ class BookLoader:
         if not date:
             return None
         date = str(int(date))
+        if len(date) == len("2023"):
+            return f"{date}-01-01"
         if len(date) == len("20200101"):
-            return "{}-{}-{}".format(date[:4], date[4:6], date[6:8])
+            return f"{date[:4]}-{date[4:6]}-{date[6:8]}"
         return date.replace("/", "-").strip()
 
     @staticmethod

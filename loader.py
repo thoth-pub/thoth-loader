@@ -14,6 +14,7 @@ from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
 from whploader import WHPLoader
 from uwploader import UWPLoader
+from lseloader import LSELoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -24,6 +25,7 @@ LOADERS = {
     "AM": AfricanMindsBookLoader,
     "WHP": WHPLoader,
     "UWP": UWPLoader,
+    "LSE": LSELoader,
 }
 
 ARGS = [

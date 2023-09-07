@@ -5,3 +5,5 @@ isbn-hyphenate==1.0.4
 numpy==1.25.2
 pymarc==5.1.0
 roman==4.1
+python-onix==0.0.2
+xsdata==23.8
