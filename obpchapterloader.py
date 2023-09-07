@@ -126,7 +126,7 @@ class ObpChapterLoader(ChapterLoader):
 
         work_id: previously obtained ID of the current work
         """
-        for index in range(1, 8):
+        for index in range(1, 11):
             contributor_id = self.data.at[row, f"contributor_id_{index}"]
             if not contributor_id:
                 continue
@@ -158,7 +158,10 @@ class ObpChapterLoader(ChapterLoader):
                 if not institution_id:
                     continue
                 institution_id = institution_id.strip()
-                position = self.data.at[row, f"position_{index}_{affiliation_ordinal}"].strip()
+                try:
+                    position = self.data.at[row, f"position_{index}_{affiliation_ordinal}"].strip()
+                except AttributeError:
+                    position = None
 
                 affiliation = {
                     "contributionId": contribution_id,
