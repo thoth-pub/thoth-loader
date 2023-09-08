@@ -52,7 +52,7 @@ class Onix3Record:
         return long_abstract[0]
 
     def reference(self):
-        return self._product.record_reference
+        return self._product.record_reference.value
 
     def license(self):
         licenses = self._product.descriptive_detail.epub_license.epub_license_expression
