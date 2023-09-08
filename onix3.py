@@ -15,7 +15,7 @@ class Onix3Record:
         try:
             title = title_element.choice[0].value
             subtitle = title_element.choice[1].value
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, IndexError):
             title = title_element.choice[0].value
             subtitle = None
         return BookLoader.sanitise_title(title, subtitle)
