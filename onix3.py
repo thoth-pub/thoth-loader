@@ -21,7 +21,8 @@ class Onix3Record:
         return BookLoader.sanitise_title(title, subtitle)
 
     def doi(self):
-        dois = [ident.idvalue.value for ident in self._product.product_identifier if ident.product_idtype.value.value == "06"]
+        dois = [ident.idvalue.value for ident in self._product.product_identifier
+                if ident.product_idtype.value.value == "06"]
         try:
             return f"https://doi.org/{dois[0]}"
         except IndexError:
@@ -29,7 +30,8 @@ class Onix3Record:
             raise
 
     def isbn(self):
-        isbns = [ident.idvalue.value for ident in self._product.product_identifier if ident.product_idtype.value.value == "15"]
+        isbns = [ident.idvalue.value for ident in self._product.product_identifier
+                 if ident.product_idtype.value.value == "15"]
         try:
             return BookLoader.sanitise_isbn(isbns[0])
         except IndexError:
@@ -54,12 +56,14 @@ class Onix3Record:
 
     def license(self):
         licenses = self._product.descriptive_detail.epub_license.epub_license_expression
-        cc = [cc.epub_license_expression_link.value for cc in licenses if cc.epub_license_expression_type.value.value == "02"]
+        cc = [cc.epub_license_expression_link.value for cc in licenses
+              if cc.epub_license_expression_type.value.value == "02"]
         return cc[0]
 
     def cover_url(self):
         resources = self._product.collateral_detail.supporting_resource
-        cover = [resource.resource_version[0].resource_link[0].value for resource in resources if resource.resource_content_type.value.value == "01"]
+        cover = [resource.resource_version[0].resource_link[0].value for resource in resources
+                 if resource.resource_content_type.value.value == "01"]
         return cover[0]
 
     def publication_place(self):
@@ -67,4 +71,15 @@ class Onix3Record:
 
     def publication_date(self):
         return BookLoader.sanitise_date(self._product.publishing_detail.publishing_date[0].date.value)
+
+    def oapen_url(self):
+        locations = self._product.product_supply[0].supply_detail
+        oapen = [location.supplier.website[0].website_link[0].value for location in locations
+                 if location.supplier.supplier_identifier_or_supplier_name[0].value == "DOAB Library"]
+        return oapen[0]
+
+    def page_count(self):
+        page_count = [extent.extent_value.value for extent in self._product.descriptive_detail.extent
+                      if extent.extent_type.value.value == "00"]
+        return int(page_count[0])
 
