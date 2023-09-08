@@ -32,6 +32,8 @@ class BookLoader:
     publisher_name = None
     publisher_shortname = None
     publisher_url = None
+    cache_contributors = True
+    cache_institutions = True
     all_contributors = {}
     all_institutions = {}
     all_series = {}
@@ -110,16 +112,18 @@ class BookLoader:
         except (IndexError, AttributeError):
             self.imprint_id = self.create_imprint()
 
-        # create cache of all existing contributors
-        for c in self.thoth.contributors(limit=99999):
-            self.all_contributors[c.fullName] = c.contributorId
-            if c.orcid:
-                self.all_contributors[c.orcid] = c.contributorId
-        # create cache of all existing institutions
-        for i in self.thoth.institutions(limit=99999):
-            self.all_institutions[i.institutionName] = i.institutionId
-            if i.ror:
-                self.all_institutions[i.ror] = i.institutionId
+        if self.cache_contributors:
+            # create cache of all existing contributors
+            for c in self.thoth.contributors(limit=99999):
+                self.all_contributors[c.fullName] = c.contributorId
+                if c.orcid:
+                    self.all_contributors[c.orcid] = c.contributorId
+        if self.cache_institutions:
+            # create cache of all existing institutions
+            for i in self.thoth.institutions(limit=99999):
+                self.all_institutions[i.institutionName] = i.institutionId
+                if i.ror:
+                    self.all_institutions[i.ror] = i.institutionId
 
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
