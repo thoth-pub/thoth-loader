@@ -83,3 +83,19 @@ class Onix3Record:
                       if extent.extent_type.value.value == "00"]
         return int(page_count[0])
 
+    def contributors(self):
+        return self._product.descriptive_detail.contributor_or_contributor_statement_or_no_contributor
+
+    def language_code(self):
+        return self._product.descriptive_detail.language[0].language_code.value.value.upper()
+
+    def bic_codes(self):
+        subjects = self._product.descriptive_detail.subject
+        return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
+                if subject.subject_scheme_identifier.value.value == "12"]
+
+    def keywords(self):
+        subjects = self._product.descriptive_detail.subject
+        return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
+                if subject.subject_scheme_identifier.value.value == "20"]
+
