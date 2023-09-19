@@ -80,7 +80,7 @@ class Onix3Record:
 
     def page_count(self):
         page_count = [extent.extent_value.value for extent in self._product.descriptive_detail.extent
-                      if extent.extent_type.value.value == "00"]
+                      if extent.extent_type.value.value in ["00", "11"]]
         return int(page_count[0])
 
     def contributors(self):
@@ -94,8 +94,17 @@ class Onix3Record:
         return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
                 if subject.subject_scheme_identifier.value.value == "12"]
 
+    def bisac_codes(self):
+        subjects = self._product.descriptive_detail.subject
+        return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
+                if subject.subject_scheme_identifier.value.value == "10"]
+
     def keywords(self):
         subjects = self._product.descriptive_detail.subject
         return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
                 if subject.subject_scheme_identifier.value.value == "20"]
 
+    def prices(self):
+        prices = self._product.product_supply[0].supply_detail[0].unpriced_item_type_or_price
+        return [(price.currency_code.value.value, str(price.price_amount.value)) for price in prices
+                if str(price.price_amount.value) != "0.00"]

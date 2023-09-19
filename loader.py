@@ -15,6 +15,7 @@ from africanmindsloader import AfricanMindsBookLoader
 from whploader import WHPLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
+from editusloader import EDITUSLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -26,6 +27,7 @@ LOADERS = {
     "WHP": WHPLoader,
     "UWP": UWPLoader,
     "LSE": LSELoader,
+    "EDITUS": EDITUSLoader,
 }
 
 ARGS = [
