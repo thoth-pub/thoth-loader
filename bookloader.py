@@ -68,18 +68,26 @@ class BookLoader:
         "EDITOR": "EDITOR",
         "B01": "EDITOR",
         "B02": "EDITOR",
+        "B13": "EDITOR",
         "C99": "EDITOR",
         "Translator": "TRANSLATOR",
         "Photographer": "PHOTOGRAPHER",
         "Illustrator": "ILLUSTRATOR",
         "B06": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
+        "A24": "INTRODUCTION_BY",
         "Introduction": "INTRODUCTION_BY",
         "writer of introduction": "INTRODUCTION_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR",
         "Research By": "RESEARCH_BY",
         "Contributions By": "CONTRIBUTIONS_BY"
+    }
+    publication_types = {
+        "E101": "EPUB",
+        "E107": "PDF",
+        "Paperback": "PAPERBACK",
+        "Hardback": "HARDBACK"
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
