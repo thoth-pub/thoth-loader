@@ -1,5 +1,4 @@
 """Load a CSV file into Thoth"""
-
 import re
 import pandas as pd
 import isbn_hyphenate
@@ -34,6 +33,7 @@ class BookLoader:
     publisher_url = None
     cache_contributors = True
     cache_institutions = True
+    cache_pagination_size = 20000
     all_contributors = {}
     all_institutions = {}
     all_series = {}
@@ -121,17 +121,19 @@ class BookLoader:
             self.imprint_id = self.create_imprint()
 
         if self.cache_contributors:
-            # create cache of all existing contributors
-            for c in self.thoth.contributors(limit=99999):
-                self.all_contributors[c.fullName] = c.contributorId
-                if c.orcid:
-                    self.all_contributors[c.orcid] = c.contributorId
+            # create cache of all existing contributors using pagination
+            for offset in range(0, self.thoth.contributor_count(), self.cache_pagination_size):
+                for c in self.thoth.contributors(limit=self.cache_pagination_size, offset=offset):
+                    self.all_contributors[c.fullName] = c.contributorId
+                    if c.orcid:
+                        self.all_contributors[c.orcid] = c.contributorId
         if self.cache_institutions:
-            # create cache of all existing institutions
-            for i in self.thoth.institutions(limit=99999):
-                self.all_institutions[i.institutionName] = i.institutionId
-                if i.ror:
-                    self.all_institutions[i.ror] = i.institutionId
+            # create cache of all existing institutions using pagination
+            for offset in range(0, self.thoth.institution_count(), self.cache_pagination_size):
+                for i in self.thoth.institutions(limit=self.cache_pagination_size, offset=offset):
+                    self.all_institutions[i.institutionName] = i.institutionId
+                    if i.ror:
+                        self.all_institutions[i.ror] = i.institutionId
 
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
