@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Load WHP metadata into Thoth"""
+"""Load UWP metadata into Thoth"""
 
 import logging
 import requests
@@ -7,7 +7,7 @@ from bookloader import BookLoader
 
 
 class UWPLoader(BookLoader):
-    """WHP specific logic to ingest metadata from CSV into Thoth"""
+    """UWP specific logic to ingest metadata from CSV into Thoth"""
     import_format = "MARCXML"
     single_imprint = True
     publisher_name = "University of Westminster Press"
