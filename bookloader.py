@@ -52,6 +52,7 @@ class BookLoader:
     }
     work_statuses = {
         "Active": "ACTIVE",
+        "ACTIVE": "ACTIVE",
         "Cancelled": "CANCELLED",
         "Forthcoming": "FORTHCOMING",
         "Out of print": "OUT_OF_PRINT",
