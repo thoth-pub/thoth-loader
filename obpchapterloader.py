@@ -126,7 +126,7 @@ class ObpChapterLoader(ChapterLoader):
 
         work_id: previously obtained ID of the current work
         """
-        for index in range(1, 11):
+        for index in range(1, 21):
             contributor_id = self.data.at[row, f"contributor_id_{index}"]
             if not contributor_id:
                 continue
