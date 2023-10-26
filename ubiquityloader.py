@@ -39,7 +39,7 @@ class UbiquityPressesLoader(BookLoader):
             self.create_contributors(row, work)
             self.create_publications(row, work_id)
             self.create_languages(row, work)
-            self.create_subjects(row, work_id)
+            self.create_subjects(row, work)
             self.create_relations(row, work)
 
     # pylint: disable=too-many-locals
@@ -354,12 +354,12 @@ class UbiquityPressesLoader(BookLoader):
             }
             self.thoth.create_language(language)
 
-    def create_subjects(self, row, work_id):
+    def create_subjects(self, row, work):
         """Creates all subjects associated with the current work
 
         row: current row number
 
-        work_id: previously obtained ID of the current work
+        work: current work
         """
         for stype in ["bic", "thema", "bisac", "lcc", "custom_categories", "keywords"]:
             column = self.data.at[row, stype] \
@@ -369,13 +369,23 @@ class UbiquityPressesLoader(BookLoader):
             codes = re.findall('"(.*?)"', column)
             for index, code in enumerate(codes):
                 if stype == "custom_categories":
-                    stype = "CUSTOM"
+                    subject_type = "CUSTOM"
                 elif stype == "keywords":
-                    stype = "KEYWORD"
+                    subject_type = "KEYWORD"
+                else:
+                    subject_type = stype.upper()
+                subject_code = code.strip()
+
+                # skip this subject if the work already has a subject
+                # with that subject type/subject code combination
+                if any((s.subjectCode == subject_code and s.subjectType == subject_type \
+                    for s in work.subjects)):
+                    continue
+
                 subject = {
                     "workId": work_id,
-                    "subjectType": stype.upper(),
-                    "subjectCode": code.strip(),
+                    "subjectType": subject_type,
+                    "subjectCode": subject_code,
                     "subjectOrdinal": index + 1,
                 }
                 self.thoth.create_subject(subject)
