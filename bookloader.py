@@ -111,15 +111,12 @@ class BookLoader:
             self.data = self.prepare_marcxml_file()
         elif self.import_format == "ONIX3":
             self.data = self.prepare_onix3_file()
-        publishers = self.thoth.publishers(search=self.publisher_name)
+
         try:
-            self.publisher_id = publishers[0].publisherId
-        except (IndexError, AttributeError):
-            self.publisher_id = self.create_publisher()
-        try:
-            self.imprint_id = publishers[0].imprints[0].imprintId
-        except (IndexError, AttributeError):
-            self.imprint_id = self.create_imprint()
+            self.set_publisher_and_imprint()
+        except Exception:
+            # Publisher name may not be set at this point, which is OK
+            pass
 
         if self.cache_contributors:
             # create cache of all existing contributors using pagination
@@ -172,6 +169,23 @@ class BookLoader:
             "imprintUrl": self.publisher_url
         }
         return self.thoth.create_imprint(imprint)
+
+    def set_publisher_and_imprint(self):
+        if self.publisher_name:
+            publishers = self.thoth.publishers(
+                        search=self.publisher_name)
+            try:
+                self.publisher_id = publishers[0].publisherId
+            except (IndexError, AttributeError):
+                self.publisher_id = self.create_publisher()
+            try:
+                self.imprint_id = publishers[0].imprints[0].imprintId
+            except (IndexError, AttributeError):
+                self.imprint_id = self.create_imprint()
+        else:
+            # Searching on an empty publisher name would return
+            # the full set of publishers and select the first one
+            raise
 
     def is_main_contribution(self, contribution_type):
         """Return a boolean string ready for ingestion"""
@@ -248,7 +262,7 @@ class BookLoader:
         """Return a float ready for ingestion"""
         try:
             return float(price.replace("$", "").strip())
-        except (TypeError, AttributeError):
+        except (TypeError, AttributeError, ValueError):
             return None
 
     @staticmethod

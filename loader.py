@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Metadata loader
 
-Call custom, business specific, workflows to ingest metdata into Thoth.
+Call custom, business specific, workflows to ingest metadata into Thoth.
 """
 
 import argparse
@@ -16,6 +16,7 @@ from whploader import WHPLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
+from ubiquityloader import UbiquityPressesLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -28,6 +29,7 @@ LOADERS = {
     "UWP": UWPLoader,
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
+    "Ubiquity-presses": UbiquityPressesLoader,
 }
 
 ARGS = [
