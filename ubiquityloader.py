@@ -29,6 +29,9 @@ class UbiquityPressesLoader(BookLoader):
             work = self.get_work(row)
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
+                existing_work = self.thoth.work_by_id(work_id)
+                existing_work.update((k, v) for k, v in work.items() if v is not None)
+                self.thoth.update_work(existing_work)
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             print("workId: {}".format(work_id))
