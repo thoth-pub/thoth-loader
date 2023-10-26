@@ -65,7 +65,9 @@ class UbiquityPressesLoader(BookLoader):
             self.data.at[row, "license"] \
             if pd.notna(self.data.at[row, "license"]) \
             else None
-        if license_abbrev == "cc-4-by":
+        if license_abbrev == None:
+            license_url = None
+        elif license_abbrev == "cc-4-by":
             license_url = "https://creativecommons.org/licenses/by/4.0/"
         elif license_abbrev == "cc-4-by-nc":
             license_url = "https://creativecommons.org/licenses/by-nc/4.0/"
