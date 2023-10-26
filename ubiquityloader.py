@@ -38,7 +38,7 @@ class UbiquityPressesLoader(BookLoader):
             work = self.thoth.work_by_id(work_id)
             self.create_contributors(row, work)
             self.create_publications(row, work_id)
-            self.create_languages(row, work_id)
+            self.create_languages(row, work)
             self.create_subjects(row, work_id)
             self.create_relations(row, work)
 
@@ -327,12 +327,12 @@ class UbiquityPressesLoader(BookLoader):
                 }
                 self.thoth.create_location(location)
 
-    def create_languages(self, row, work_id):
+    def create_languages(self, row, work):
         """Creates all languages associated with the current work
 
         row: current row number
 
-        work_id: previously obtained ID of the current work
+        work: current work
         """
         column = self.data.at[row, "languages"]
         languages = re.findall('\\((.*?)\\)', column)
@@ -341,6 +341,11 @@ class UbiquityPressesLoader(BookLoader):
             language_relation = language[0].strip().strip('"').upper()
             language_code = language[1].strip().strip('"').upper()
             is_main = language[2].strip().strip('"')
+
+            # skip this language if the work already has a language with that code
+            if any(l.languageCode == language_code for l in work.languages):
+                continue
+
             language = {
                 "workId": work_id,
                 "languageRelation": language_relation,
