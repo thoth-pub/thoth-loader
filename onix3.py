@@ -1,7 +1,7 @@
 """Parse an ONIX 3.0 Product"""
 import re
 import logging
-from onix.book.v3_0.reference.strict import Product, Publisher
+from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote
 from bookloader import BookLoader
 
 
@@ -103,7 +103,8 @@ class Onix3Record:
             return None
 
     def contributors(self):
-        return self._product.descriptive_detail.contributor_or_contributor_statement_or_no_contributor
+        return [c for c in self._product.descriptive_detail.contributor_or_contributor_statement_or_no_contributor
+                if type(c) is Contributor]
 
     def language_code(self):
         return self._product.descriptive_detail.language[0].language_code.value.value.upper()
@@ -159,3 +160,25 @@ class Onix3Record:
         except IndexError:
             return None
 
+    @staticmethod
+    def get_key_names(contributor: Contributor):
+        return [name.value for name in contributor.choice
+                if type(name) is KeyNames][0]
+
+    @staticmethod
+    def get_names_before_key(contributor: Contributor):
+        return [name.value for name in contributor.choice
+                if type(name) is NamesBeforeKey][0]
+
+    @staticmethod
+    def get_affiliation(contributor: Contributor):
+        logging.info(contributor.choice_1)
+        return [affiliation.value
+                for professional_affiliation in contributor.choice_1
+                for affiliation in getattr(professional_affiliation, 'professional_position_or_affiliation', [])]
+
+    @staticmethod
+    def get_biography(contributor: Contributor):
+        return [content
+                for biographical_note in contributor.choice_1
+                for content in getattr(biographical_note, 'content', [])][0]
