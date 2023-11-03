@@ -13,6 +13,7 @@ from punctumloader import PunctumBookLoader
 from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
 from whploader import WHPLoader
+from whpchapterloader import WHPChapterLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
@@ -25,6 +26,7 @@ LOADERS = {
     "punctum-chapters": PunctumChapterLoader,
     "AM": AfricanMindsBookLoader,
     "WHP": WHPLoader,
+    "WHP-chapters": WHPChapterLoader,
     "UWP": UWPLoader,
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
