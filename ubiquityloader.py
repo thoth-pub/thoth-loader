@@ -56,7 +56,7 @@ class UbiquityPressesLoader(BookLoader):
         title = self.sanitise_title(title, subtitle)
         edition = int(self.data.at[row, "edition"]) \
             if pd.notna(self.data.at[row, "edition"]) else 1
-        doi = "https://doi.org/{}".format(self.sanitise_string(self.data.at[row, 'doi'])) \
+        doi = self.sanitise_doi(self.sanitise_string(self.data.at[row, 'doi'])) \
             if self.data.at[row, 'doi'] else None
         reference = str(self.data.at[row, "reference"]) \
             if pd.notna(self.data.at[row, "reference"]) else None
@@ -82,7 +82,7 @@ class UbiquityPressesLoader(BookLoader):
             raise
         copyright_holder = self.data.at[row, 'copyright_holder'] \
             if pd.notna(self.data.at[row, "copyright_holder"]) else None
-        landing_page = "https://{}".format(self.data.at[row, "landing_page"]) \
+        landing_page = self.sanitise_url(self.data.at[row, "landing_page"]) \
             if pd.notna(self.data.at[row, "landing_page"]) else None
         page_count = int(self.data.at[row, "page_count"]) \
             if pd.notna(self.data.at[row, "page_count"]) else None
@@ -184,7 +184,7 @@ class UbiquityPressesLoader(BookLoader):
             biography = contribution[5].strip().strip('"')
             orcid = contribution[6].strip().strip('"')
             if orcid:
-                orcid = "https://orcid.org/{}".format(orcid)
+                orcid = self.sanitise_orcid(orcid)
             website = contribution[7].strip().strip('"')
 
             if orcid in work_contributions:
@@ -231,8 +231,8 @@ class UbiquityPressesLoader(BookLoader):
                 affiliation = re.split(',', affiliation_string)
                 position = affiliation[0].strip().strip('"')
                 institution_name = affiliation[1].strip().strip('"')
-                institution_doi = affiliation[2].strip().strip('"')
-                ror = affiliation[3].strip().strip('"')
+                institution_doi = self.sanitise_doi(affiliation[2].strip().strip('"'))
+                ror = self.sanitise_ror(affiliation[3].strip().strip('"'))
                 country_code = affiliation[4].strip().strip('"')
                 if institution_name:
                     # retrieve institution or create if it doesn't exist
@@ -335,10 +335,10 @@ class UbiquityPressesLoader(BookLoader):
                 location = re.split(',', location_string)
                 landing_page = location[0].strip().strip('"')
                 if landing_page:
-                    landing_page = "https://{}".format(landing_page)
+                    landing_page = self.sanitise_url(landing_page)
                 full_text_url = location[1].strip().strip('"')
                 if full_text_url:
-                    full_text_url = "https://{}".format(full_text_url)
+                    full_text_url = self.sanitise_url(full_text_url)
                 platform = location[2].strip().strip('"')
                 is_canonical = location[3].strip().strip('"')
 
@@ -476,7 +476,7 @@ class UbiquityPressesLoader(BookLoader):
             relation_title = relation[0].strip().strip('"')
             doi = relation[1].strip().strip('"')
             if doi:
-                doi = "https://doi.org/{}".format(doi)
+                doi = self.sanitise_doi(doi)
             relation_type = relation[2].strip().strip('"').upper()
             relation_ordinal = int(relation[3].strip().strip('"'))
 

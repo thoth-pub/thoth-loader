@@ -258,6 +258,43 @@ class BookLoader:
             raise
 
     @staticmethod
+    def sanitise_url(url):
+        """Return a URL beginning https://"""
+        if not url:
+            return None
+        if url.startswith("https://"):
+            return url
+        else:
+            return "https://{}".format(url)
+
+    @staticmethod
+    def sanitise_doi(doi):
+        """Return a DOI beginning https://doi.org/"""
+        return BookLoader.sanitise_identifier(doi, "doi")
+
+    @staticmethod
+    def sanitise_orcid(orcid):
+        """Return an ORCID beginning https://orcid.org/"""
+        return BookLoader.sanitise_identifier(orcid, "orcid")
+
+    @staticmethod
+    def sanitise_ror(ror):
+        """Return a ROR beginning https://ror.org/"""
+        return BookLoader.sanitise_identifier(ror, "ror")
+
+    @staticmethod
+    def sanitise_identifier(identifier, domain):
+        """Return an identifier beginning https://{domain}.org/"""
+        if not identifier:
+            return None
+        if identifier.startswith("https://{}.org/".format(domain)):
+            return identifier
+        elif identifier.startswith("{}.org/".format(domain)):
+            return BookLoader.sanitise_url(identifier)
+        else:
+            return "https://{}.org/{}".format(domain, identifier)
+
+    @staticmethod
     def sanitise_price(price):
         """Return a float ready for ingestion"""
         try:
