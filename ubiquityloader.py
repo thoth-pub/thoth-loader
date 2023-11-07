@@ -37,7 +37,7 @@ class UbiquityPressesLoader(BookLoader):
             print("workId: {}".format(work_id))
             work = self.thoth.work_by_id(work_id)
             self.create_contributors(row, work)
-            self.create_publications(row, work_id)
+            self.create_publications(row, work)
             self.create_languages(row, work)
             self.create_subjects(row, work)
             self.create_relations(row, work)
@@ -248,12 +248,12 @@ class UbiquityPressesLoader(BookLoader):
                     }
                     self.thoth.create_affiliation(affiliation)
 
-    def create_publications(self, row, work_id):
+    def create_publications(self, row, work):
         """Creates all publications associated with the current work
 
         row: current row number
 
-        work_id: previously obtained ID of the current work
+        work: current work
         """
         column = self.data.at[row, "publications"]
         publications = re.findall(
@@ -265,36 +265,42 @@ class UbiquityPressesLoader(BookLoader):
             locations = re.findall('\\((.*?)\\)', locations_string)
             publication = re.split(',', publication_string)
             publication_type = publication[0].strip().strip('"').upper()
-            isbn = publication[1].strip().strip('"')
-            isbn = self.sanitise_isbn(isbn)
-            width_mm = publication[2].strip().strip('"')
-            width_cm = publication[3].strip().strip('"')
-            width_in = publication[4].strip().strip('"')
-            height_mm = publication[5].strip().strip('"')
-            height_cm = publication[6].strip().strip('"')
-            height_in = publication[7].strip().strip('"')
-            depth_mm = publication[8].strip().strip('"')
-            depth_cm = publication[9].strip().strip('"')
-            depth_in = publication[10].strip().strip('"')
-            weight_g = publication[11].strip().strip('"')
-            weight_oz = publication[12].strip().strip('"')
-            publication = {
-                "workId": work_id,
-                "publicationType": publication_type,
-                "isbn": isbn,
-                "widthMm": width_mm,
-                "widthCm": width_cm,
-                "widthIn": width_in,
-                "heightMm": height_mm,
-                "heightCm": height_cm,
-                "heightIn": height_in,
-                "depthMm": depth_mm,
-                "depthCm": depth_cm,
-                "depthIn": depth_in,
-                "weightG": weight_g,
-                "weightOz": weight_oz,
-            }
-            publication_id = self.thoth.create_publication(publication)
+
+            existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
+            if existing_pub:
+                publication_id = existing_pub.publicationId
+            else:
+                isbn = publication[1].strip().strip('"')
+                isbn = self.sanitise_isbn(isbn)
+                width_mm = publication[2].strip().strip('"')
+                width_cm = publication[3].strip().strip('"')
+                width_in = publication[4].strip().strip('"')
+                height_mm = publication[5].strip().strip('"')
+                height_cm = publication[6].strip().strip('"')
+                height_in = publication[7].strip().strip('"')
+                depth_mm = publication[8].strip().strip('"')
+                depth_cm = publication[9].strip().strip('"')
+                depth_in = publication[10].strip().strip('"')
+                weight_g = publication[11].strip().strip('"')
+                weight_oz = publication[12].strip().strip('"')
+                publication = {
+                    "workId": work_id,
+                    "publicationType": publication_type,
+                    "isbn": isbn,
+                    "widthMm": width_mm,
+                    "widthCm": width_cm,
+                    "widthIn": width_in,
+                    "heightMm": height_mm,
+                    "heightCm": height_cm,
+                    "heightIn": height_in,
+                    "depthMm": depth_mm,
+                    "depthCm": depth_cm,
+                    "depthIn": depth_in,
+                    "weightG": weight_g,
+                    "weightOz": weight_oz,
+                }
+                publication_id = self.thoth.create_publication(publication)
+
             for price_string in prices:
                 price = re.split(',', price_string)
                 currency_code = price[0].strip().strip('"')
