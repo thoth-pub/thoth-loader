@@ -169,7 +169,7 @@ class UbiquityPressesLoader(BookLoader):
         work: current work
         """
         column = self.data.at[row, "contributions"]
-        contributions = re.findall('\\((.*?\\[\\(.*?\\)\\])\\)', column)
+        contributions = re.findall('\\((.*?\\[.*?\\])\\)', column)
         work_contributions = self.get_work_contributions(work)
         highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
         for contribution_string in contributions:
@@ -269,7 +269,7 @@ class UbiquityPressesLoader(BookLoader):
         """
         column = self.data.at[row, "publications"]
         publications = re.findall(
-            '\\((.*?\\[\\(.*?\\)\\],\\[\\(.*?\\)\\])\\)', column)
+            '\\((.*?\\[.*?\\],\\[.*?\\])\\)', column)
         for publication_string in publications:
             (prices_string, locations_string) = re.findall(
                 '\\[(.*?)\\],\\[(.*?)\\]', publication_string)[0]
