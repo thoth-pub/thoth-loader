@@ -469,6 +469,7 @@ class UbiquityPressesLoader(BookLoader):
         if not column or not column.strip():
             return
         relations = re.findall('\\((".*?")\\)', column)
+        highest_child_ordinal = max((r.relationOrdinal for r in relator_work.relations if r.relationType == "HAS_CHILD"), default=0)
         for relation_string in relations:
             relation = re.findall('"(.*?)"', relation_string)
             relation_title = relation[0].strip().strip('"')
@@ -476,46 +477,60 @@ class UbiquityPressesLoader(BookLoader):
             if doi:
                 doi = "https://doi.org/{}".format(doi)
             relation_type = relation[2].strip().strip('"').upper()
-            relation_ordinal = relation[3].strip().strip('"')
+            relation_ordinal = int(relation[3].strip().strip('"'))
+
+            # skip this relation if the work already has a relation with that DOI
+            if any(r.relatedWork.doi == doi for r in relator_work.relations):
+                continue
 
             if relation_type == "HAS_CHILD":
-                # Create a new work which inherits from the current work
-                related_work = {
-                    "workType": "BOOK_CHAPTER",
-                    "workStatus": relator_work.workStatus,
-                    "fullTitle": relation_title,
-                    "title": relation_title,
-                    "subtitle": None,
-                    "reference": None,
-                    "edition": None,
-                    "imprintId": relator_work.imprintId,
-                    "doi": doi,
-                    "publicationDate": relator_work.publicationDate,
-                    "place": relator_work.place,
-                    "pageCount": None,
-                    "pageBreakdown": None,
-                    "firstPage": None,
-                    "lastPage": None,
-                    "pageInterval": None,
-                    "imageCount": None,
-                    "tableCount": None,
-                    "audioCount": None,
-                    "videoCount": None,
-                    "license": relator_work.license,
-                    "copyrightHolder": None,
-                    "landingPage": None,
-                    "lccn": None,
-                    "oclc": None,
-                    "shortAbstract": None,
-                    "longAbstract": None,
-                    "generalNote": None,
-                    "toc": None,
-                    "coverUrl": None,
-                    "coverCaption": None,
-                }
-                related_work_id = self.thoth.create_work(related_work)
+                try:
+                    # Find the existing child work, if any
+                    related_work_id = self.thoth.work_by_doi(doi).workId
+                except (IndexError, AttributeError, ThothError):
+                    # Create a new child work which inherits from the current work
+                    related_work = {
+                        "workType": "BOOK_CHAPTER",
+                        "workStatus": relator_work.workStatus,
+                        "fullTitle": relation_title,
+                        "title": relation_title,
+                        "subtitle": None,
+                        "reference": None,
+                        "edition": None,
+                        "imprintId": relator_work.imprintId,
+                        "doi": doi,
+                        "publicationDate": relator_work.publicationDate,
+                        "place": relator_work.place,
+                        "pageCount": None,
+                        "pageBreakdown": None,
+                        "firstPage": None,
+                        "lastPage": None,
+                        "pageInterval": None,
+                        "imageCount": None,
+                        "tableCount": None,
+                        "audioCount": None,
+                        "videoCount": None,
+                        "license": relator_work.license,
+                        "copyrightHolder": None,
+                        "landingPage": None,
+                        "lccn": None,
+                        "oclc": None,
+                        "shortAbstract": None,
+                        "longAbstract": None,
+                        "generalNote": None,
+                        "toc": None,
+                        "coverUrl": None,
+                        "coverCaption": None,
+                    }
+                    related_work_id = self.thoth.create_work(related_work)
 
-                # Create work relation associating current work with new work
+                if any(r.relationOrdinal == relation_ordinal and r.relationType == "HAS_CHILD" for r in relator_work.relations):
+                    # Avoid clashes if a child with this ordinal already exists
+                    # but is linked to a different DOI - just use next available
+                    relation_ordinal = highest_child_ordinal + 1
+                    highest_child_ordinal += 1
+
+                # Create work relation associating current work with child work
                 work_relation = {
                     "relatorWorkId": relator_work.workId,
                     "relatedWorkId": related_work_id,
