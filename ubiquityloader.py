@@ -296,7 +296,7 @@ class UbiquityPressesLoader(BookLoader):
                 weight_g = publication[11].strip().strip('"')
                 weight_oz = publication[12].strip().strip('"')
                 publication = {
-                    "workId": work_id,
+                    "workId": work.workId,
                     "publicationType": publication_type,
                     "isbn": isbn,
                     "widthMm": width_mm,
@@ -415,7 +415,7 @@ class UbiquityPressesLoader(BookLoader):
                 continue
 
             language = {
-                "workId": work_id,
+                "workId": work.workId,
                 "languageRelation": language_relation,
                 "languageCode": language_code,
                 "mainLanguage": is_main,
@@ -451,7 +451,7 @@ class UbiquityPressesLoader(BookLoader):
                     continue
 
                 subject = {
-                    "workId": work_id,
+                    "workId": work.workId,
                     "subjectType": subject_type,
                     "subjectCode": subject_code,
                     "subjectOrdinal": index + 1,
