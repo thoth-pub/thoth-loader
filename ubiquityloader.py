@@ -269,10 +269,10 @@ class UbiquityPressesLoader(BookLoader):
         """
         column = self.data.at[row, "publications"]
         publications = re.findall(
-            '\\((.*?\\[.*?\\],\\[.*?\\])\\)', column)
+            '\\((.*?\\[.*?\\], ?\\[.*?\\])\\)', column)
         for publication_string in publications:
             (prices_string, locations_string) = re.findall(
-                '\\[(.*?)\\],\\[(.*?)\\]', publication_string)[0]
+                '\\[(.*?)\\], ?\\[(.*?)\\]', publication_string)[0]
             prices = re.findall('\\((.*?)\\)', prices_string)
             locations = re.findall('\\((.*?)\\)', locations_string)
             publication = re.split(',', publication_string)
