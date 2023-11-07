@@ -314,6 +314,11 @@ class UbiquityPressesLoader(BookLoader):
                         "unitPrice": unit_price,
                     }
                     self.thoth.create_price(price)
+
+            # Order in which locations are added is important -
+            # store them up rather than adding one-by-one
+            new_canonical_location = None
+            new_non_canonical_locations = []
             for location_string in locations:
                 location = re.split(',', location_string)
                 landing_page = location[0].strip().strip('"')
@@ -324,6 +329,16 @@ class UbiquityPressesLoader(BookLoader):
                     full_text_url = "https://{}".format(full_text_url)
                 platform = location[2].strip().strip('"')
                 is_canonical = location[3].strip().strip('"')
+
+                if existing_pub and any(l.locationPlatform == platform for l in existing_pub.locations) \
+                    and not platform == "OTHER":
+                    # Only one location per platform (other than OTHER) can be added
+                    # Skip locations where an entry for this platform already exists
+                    continue
+
+                if new_canonical_location:
+                    # Only ever keep the first canonical location found; mark others as non-canonical
+                    is_canonical = "false"
                 location = {
                     "publicationId": publication_id,
                     "landingPage": landing_page,
@@ -331,7 +346,42 @@ class UbiquityPressesLoader(BookLoader):
                     "locationPlatform": platform,
                     "canonical": is_canonical,
                 }
-                self.thoth.create_location(location)
+                if is_canonical == "true":
+                    # .copy() only copies first level of nesting, but OK here
+                    # as we shouldn't have any sub-nests
+                    new_canonical_location = location.copy()
+                else:
+                    new_non_canonical_locations.append(location)
+
+            if new_canonical_location:
+                if existing_pub and len(existing_pub.locations) > 0:
+                    # If any locations exist, one of them must be canonical.
+                    # We have to remove all existing locations before adding a canonical one.
+                    # We must then re-add them all as non-canonical afterwards.
+                    for existing_location in existing_pub.locations:
+                        replacement_location = {
+                            "publicationId": publication_id,
+                            "landingPage": existing_location.landingPage,
+                            "fullTextUrl": existing_location.fullTextUrl,
+                            "locationPlatform": existing_location.locationPlatform,
+                            "canonical": "false",
+                        }
+                        new_non_canonical_locations.append(replacement_location)
+                        self.thoth.delete_location({"locationId": existing_location.locationId})
+            else:
+                if not existing_pub or len(existing_pub.locations) < 1:
+                    # Publication must have exactly one canonical location,
+                    # but none exists yet and none are marked to be added.
+                    # Change the first non-canonical location (if any) to canonical.
+                    if len(new_non_canonical_locations) > 0:
+                        new_canonical_location = new_non_canonical_locations.pop(0)
+                        new_canonical_location.update({"canonical": "true"})
+
+            if new_canonical_location:
+                self.thoth.create_location(new_canonical_location)
+
+            for new_location in new_non_canonical_locations:
+                self.thoth.create_location(new_location)
 
     def create_languages(self, row, work):
         """Creates all languages associated with the current work
