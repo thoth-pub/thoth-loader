@@ -170,7 +170,8 @@ class UbiquityPressesLoader(BookLoader):
         column = self.data.at[row, "contributions"]
         contributions = re.findall('\\((.*?\\[\\(.*?\\)\\])\\)', column)
         work_contributions = self.get_work_contributions(work)
-        for index, contribution_string in enumerate(contributions):
+        highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
+        for contribution_string in contributions:
             affiliations = re.findall('\\((".*?")\\)', contribution_string)
             contribution = re.split(',', contribution_string)
             contribution_type = contribution[0].strip().strip('"').upper()
@@ -184,41 +185,44 @@ class UbiquityPressesLoader(BookLoader):
             if orcid:
                 orcid = "https://orcid.org/{}".format(orcid)
             website = contribution[7].strip().strip('"')
-            contributor = {
-                "firstName": first_name,
-                "lastName": last_name,
-                "fullName": full_name,
-                "orcid": orcid,
-                "website": website,
-            }
-            # skip this contribution if already in the work
-            if orcid in work_contributions or full_name in work_contributions:
-                continue
 
-            # contribution not in work, try to get contributor or create it
-            if orcid and orcid in self.all_contributors:
-                contributor_id = self.all_contributors[orcid]
-            elif full_name in self.all_contributors:
-                contributor_id = self.all_contributors[full_name]
+            if orcid in work_contributions:
+                contribution_id = work_contributions[orcid]
+            elif full_name in work_contributions:
+                contribution_id = work_contributions[full_name]
             else:
-                contributor_id = self.thoth.create_contributor(contributor)
-                # cache new contributor
-                self.all_contributors[full_name] = contributor_id
-                if orcid:
-                    self.all_contributors[orcid] = contributor_id
+                # contribution not in work, try to get contributor or create it
+                if orcid and orcid in self.all_contributors:
+                    contributor_id = self.all_contributors[orcid]
+                elif full_name in self.all_contributors:
+                    contributor_id = self.all_contributors[full_name]
+                else:
+                    contributor = {
+                        "firstName": first_name,
+                        "lastName": last_name,
+                        "fullName": full_name,
+                        "orcid": orcid,
+                        "website": website,
+                    }
+                    contributor_id = self.thoth.create_contributor(contributor)
+                    # cache new contributor
+                    self.all_contributors[full_name] = contributor_id
+                    if orcid:
+                        self.all_contributors[orcid] = contributor_id
 
-            contribution = {
-                "workId": work.workId,
-                "contributorId": contributor_id,
-                "contributionType": contribution_type,
-                "mainContribution": is_main,
-                "contributionOrdinal": index + 1,
-                "biography": biography,
-                "firstName": first_name,
-                "lastName": last_name,
-                "fullName": full_name
-            }
-            contribution_id = self.thoth.create_contribution(contribution)
+                contribution = {
+                    "workId": work.workId,
+                    "contributorId": contributor_id,
+                    "contributionType": contribution_type,
+                    "mainContribution": is_main,
+                    "contributionOrdinal": highest_contribution_ordinal + 1,
+                    "biography": biography,
+                    "firstName": first_name,
+                    "lastName": last_name,
+                    "fullName": full_name
+                }
+                contribution_id = self.thoth.create_contribution(contribution)
+                highest_contribution_ordinal += 1
 
             for index, affiliation_string in enumerate(affiliations):
                 affiliation = re.split(',', affiliation_string)
