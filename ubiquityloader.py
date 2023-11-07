@@ -80,7 +80,8 @@ class UbiquityPressesLoader(BookLoader):
             # TODO proper logging
             print("Unrecognised license: %s" % license_abbrev)
             raise
-        copyright_holder = self.data.at[row, 'copyright_holder']
+        copyright_holder = self.data.at[row, 'copyright_holder'] \
+            if pd.notna(self.data.at[row, "copyright_holder"]) else None
         landing_page = "https://{}".format(self.data.at[row, "landing_page"]) \
             if pd.notna(self.data.at[row, "landing_page"]) else None
         page_count = int(self.data.at[row, "page_count"]) \
