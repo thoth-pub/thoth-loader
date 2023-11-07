@@ -224,7 +224,9 @@ class UbiquityPressesLoader(BookLoader):
                 contribution_id = self.thoth.create_contribution(contribution)
                 highest_contribution_ordinal += 1
 
-            for index, affiliation_string in enumerate(affiliations):
+            existing_affiliations = next((c.affiliations for c in work.contributions if c.contributionId == contribution_id), [])
+            highest_affiliation_ordinal = max((a.affiliationOrdinal for a in existing_affiliations), default=0)
+            for affiliation_string in affiliations:
                 affiliation = re.split(',', affiliation_string)
                 position = affiliation[0].strip().strip('"')
                 institution_name = affiliation[1].strip().strip('"')
@@ -244,13 +246,18 @@ class UbiquityPressesLoader(BookLoader):
                         }
                         institution_id = self.thoth.create_institution(institution)
                         self.all_institutions[institution_name] = institution_id
-                    affiliation = {
-                        "contributionId": contribution_id,
-                        "institutionId": institution_id,
-                        "affiliationOrdinal": index + 1,
-                        "position": position,
-                    }
-                    self.thoth.create_affiliation(affiliation)
+
+                    if any(a.institution.institutionId == institution_id for a in existing_affiliations):
+                        continue
+                    else:
+                        affiliation = {
+                            "contributionId": contribution_id,
+                            "institutionId": institution_id,
+                            "affiliationOrdinal": highest_affiliation_ordinal + 1,
+                            "position": position,
+                        }
+                        self.thoth.create_affiliation(affiliation)
+                        highest_affiliation_ordinal += 1
 
     def create_publications(self, row, work):
         """Creates all publications associated with the current work
