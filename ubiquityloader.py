@@ -182,9 +182,7 @@ class UbiquityPressesLoader(BookLoader):
             full_name = contribution[3].strip().strip('"')
             is_main = contribution[4].strip().strip('"')
             biography = contribution[5].strip().strip('"')
-            orcid = contribution[6].strip().strip('"')
-            if orcid:
-                orcid = self.sanitise_orcid(orcid)
+            orcid = self.sanitise_orcid(contribution[6].strip().strip('"'))
             website = contribution[7].strip().strip('"')
 
             if orcid in work_contributions:
@@ -333,12 +331,8 @@ class UbiquityPressesLoader(BookLoader):
             new_non_canonical_locations = []
             for location_string in locations:
                 location = re.split(',', location_string)
-                landing_page = location[0].strip().strip('"')
-                if landing_page:
-                    landing_page = self.sanitise_url(landing_page)
-                full_text_url = location[1].strip().strip('"')
-                if full_text_url:
-                    full_text_url = self.sanitise_url(full_text_url)
+                landing_page = self.sanitise_url(location[0].strip().strip('"'))
+                full_text_url = self.sanitise_url(location[1].strip().strip('"'))
                 platform = location[2].strip().strip('"')
                 is_canonical = location[3].strip().strip('"')
 
@@ -474,9 +468,7 @@ class UbiquityPressesLoader(BookLoader):
         for relation_string in relations:
             relation = re.findall('"(.*?)"', relation_string)
             relation_title = relation[0].strip().strip('"')
-            doi = relation[1].strip().strip('"')
-            if doi:
-                doi = self.sanitise_doi(doi)
+            doi = self.sanitise_doi(relation[1].strip().strip('"'))
             relation_type = relation[2].strip().strip('"').upper()
             relation_ordinal = int(relation[3].strip().strip('"'))
 
