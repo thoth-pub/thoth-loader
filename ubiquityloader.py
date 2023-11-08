@@ -168,7 +168,10 @@ class UbiquityPressesLoader(BookLoader):
 
         work: current work
         """
-        column = self.data.at[row, "contributions"]
+        column = self.data.at[row, "contributions"] \
+            if pd.notna(self.data.at[row, "contributions"]) else None
+        if not column or not column.strip():
+            return
         contributions = re.findall('\\((.*?\\[.*?\\])\\)', column)
         highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
         for contribution_string in contributions:
@@ -273,7 +276,10 @@ class UbiquityPressesLoader(BookLoader):
 
         work: current work
         """
-        column = self.data.at[row, "publications"]
+        column = self.data.at[row, "publications"] \
+            if pd.notna(self.data.at[row, "publications"]) else None
+        if not column or not column.strip():
+            return
         publications = re.findall(
             '\\((.*?\\[.*?\\], ?\\[.*?\\])\\)', column)
         for publication_string in publications:
@@ -407,7 +413,10 @@ class UbiquityPressesLoader(BookLoader):
 
         work: current work
         """
-        column = self.data.at[row, "languages"]
+        column = self.data.at[row, "languages"] \
+            if pd.notna(self.data.at[row, "languages"]) else None
+        if not column or not column.strip():
+            return
         languages = re.findall('\\((.*?)\\)', column)
         for language_string in languages:
             language = re.split(',', language_string)
