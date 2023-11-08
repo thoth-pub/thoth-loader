@@ -88,7 +88,8 @@ class BookLoader:
         "E101": "EPUB",
         "E107": "PDF",
         "Paperback": "PAPERBACK",
-        "Hardback": "HARDBACK"
+        "Hardback": "HARDBACK",
+        "KINDLE": "AZW3"
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
@@ -249,7 +250,10 @@ class BookLoader:
             return None
         try:
             if "-" in str(isbn):
-                return str(isbn)
+                if not len(str(isbn)) == 17:
+                    raise isbn_hyphenate.IsbnMalformedError
+                else:
+                    return str(isbn)
             return isbn_hyphenate.hyphenate(str(int(isbn)))
         except ValueError:
             return None

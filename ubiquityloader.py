@@ -289,6 +289,12 @@ class UbiquityPressesLoader(BookLoader):
             locations = re.findall('\\((.*?)\\)', locations_string)
             publication = re.split(',', publication_string)
             publication_type = publication[0].strip().strip('"').upper()
+            try:
+                publication_type = self.publication_types[publication_type]
+            except KeyError:
+                # Most values provided by Ubiquity are well-formatted -
+                # attempt the Thoth request anyway
+                pass
 
             existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
             if existing_pub:
