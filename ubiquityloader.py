@@ -232,31 +232,35 @@ class UbiquityPressesLoader(BookLoader):
                 institution_doi = self.sanitise_doi(affiliation[2].strip().strip('"'))
                 ror = self.sanitise_ror(affiliation[3].strip().strip('"'))
                 country_code = affiliation[4].strip().strip('"')
-                if institution_name:
-                    # retrieve institution or create if it doesn't exist
-                    if institution_name in self.all_institutions:
-                        institution_id = self.all_institutions[institution_name]
-                    else:
-                        institution = {
-                            "institutionName": institution_name,
-                            "institutionDoi": institution_doi,
-                            "ror": ror,
-                            "countryCode": country_code,
-                        }
-                        institution_id = self.thoth.create_institution(institution)
-                        self.all_institutions[institution_name] = institution_id
+                if not institution_name or institution_name == "n/a":
+                    # Ubiquity have provided nationalities for some contributors
+                    # by filling out affiliation with "n/a" - skip these
+                    continue
 
-                    if any(a.institution.institutionId == institution_id for a in existing_affiliations):
-                        continue
-                    else:
-                        affiliation = {
-                            "contributionId": contribution_id,
-                            "institutionId": institution_id,
-                            "affiliationOrdinal": highest_affiliation_ordinal + 1,
-                            "position": position,
-                        }
-                        self.thoth.create_affiliation(affiliation)
-                        highest_affiliation_ordinal += 1
+                # retrieve institution or create if it doesn't exist
+                if institution_name in self.all_institutions:
+                    institution_id = self.all_institutions[institution_name]
+                else:
+                    institution = {
+                        "institutionName": institution_name,
+                        "institutionDoi": institution_doi,
+                        "ror": ror,
+                        "countryCode": country_code,
+                    }
+                    institution_id = self.thoth.create_institution(institution)
+                    self.all_institutions[institution_name] = institution_id
+
+                if any(a.institution.institutionId == institution_id for a in existing_affiliations):
+                    continue
+                else:
+                    affiliation = {
+                        "contributionId": contribution_id,
+                        "institutionId": institution_id,
+                        "affiliationOrdinal": highest_affiliation_ordinal + 1,
+                        "position": position,
+                    }
+                    self.thoth.create_affiliation(affiliation)
+                    highest_affiliation_ordinal += 1
 
     def create_publications(self, row, work):
         """Creates all publications associated with the current work
