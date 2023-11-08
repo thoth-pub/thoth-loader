@@ -1,26 +1,23 @@
 #!/usr/bin/env python
-"""Load OBP chapter metadata into Thoth"""
+"""Load WHP chapter metadata into Thoth"""
 
-import re
 import logging
 
 from bookloader import BookLoader
 from chapterloader import ChapterLoader
 
 
-class ObpChapterLoader(ChapterLoader):
-    """OBP specific logic to ingest chapter metadata from CSV into Thoth"""
-    publisher_name = "Open Book Publishers"
+class WHPChapterLoader(ChapterLoader):
+    """WHP specific logic to ingest chapter metadata from CSV into Thoth"""
+    publisher_name = "The White Horse Press"
     contributors_limit = 1  # lookup not needed in this workflow
     institutions_limit = 1
 
     def run(self):
         """Process CSV and call Thoth to insert its data"""
-        book_doi = self.data.at[0, 'doi'].strip().lower()[:-3]  # OBP chapter DOIs are book's + ".00"
-        book_id = self.get_work_by_doi(book_doi)['workId']
-
-        relation_ordinal = 1
         for row in self.data.index:
+            book_id = self.data.at[row, 'parent_work_id']
+            relation_ordinal = self.data.at[row, 'relation_ordinal']
             work = self.get_work(row, self.imprint_id)
             logging.info(work)
             work_id = self.thoth.create_work(work)
@@ -28,7 +25,6 @@ class ObpChapterLoader(ChapterLoader):
             self.create_languages(row, work_id)
             self.create_contributors(row, work_id)
             self.create_chapter_relation(book_id, work_id, relation_ordinal)
-            relation_ordinal += 1
 
     def get_work(self, row, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -40,14 +36,11 @@ class ObpChapterLoader(ChapterLoader):
         title = self.data.at[row, 'title']
         subtitle = self.data.at[row, 'subtitle']
         title = self.sanitise_title(title, subtitle)
-        doi = self.data.at[row, 'doi'].strip().lower()
+        doi = self.data.at[row, 'doi'].strip().lower() if self.data.at[row, 'doi'] else None
 
         cc_license = "https://creativecommons.org/licenses/{}/4.0/".format(self.data.at[row, 'license'].lower())
 
-        # Produce landing page based on OBP's convention
-        chapter_doi = doi.replace("https://doi.org/", "")
-        book_doi = chapter_doi[:-3]
-        landing_page = f"https://www.openbookpublishers.com/books/{book_doi}/chapters/{chapter_doi}"
+        landing_page = self.data.at[row, 'landing_page']
 
         page_count = int(self.data.at[row, "page_count"]) \
             if self.data.at[row, "page_count"] else None
@@ -63,7 +56,7 @@ class ObpChapterLoader(ChapterLoader):
 
         work = {
             "workType": "BOOK_CHAPTER",
-            "workStatus": "FORTHCOMING",
+            "workStatus": "ACTIVE",
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
@@ -72,7 +65,7 @@ class ObpChapterLoader(ChapterLoader):
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": None,
-            "place": "Cambridge, UK",
+            "place": None,
             "width": None,
             "height": None,
             "pageCount": page_count,
@@ -126,7 +119,7 @@ class ObpChapterLoader(ChapterLoader):
 
         work_id: previously obtained ID of the current work
         """
-        for index in range(1, 21):
+        for index in range(1, 6):
             contributor_id = self.data.at[row, f"contributor_id_{index}"]
             if not contributor_id:
                 continue
