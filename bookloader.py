@@ -52,6 +52,7 @@ class BookLoader:
     }
     work_statuses = {
         "Active": "ACTIVE",
+        "ACTIVE": "ACTIVE",
         "Cancelled": "CANCELLED",
         "Forthcoming": "FORTHCOMING",
         "Out of print": "OUT_OF_PRINT",
@@ -87,7 +88,8 @@ class BookLoader:
         "E101": "EPUB",
         "E107": "PDF",
         "Paperback": "PAPERBACK",
-        "Hardback": "HARDBACK"
+        "Hardback": "HARDBACK",
+        "KINDLE": "AZW3"
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
@@ -110,15 +112,12 @@ class BookLoader:
             self.data = self.prepare_marcxml_file()
         elif self.import_format == "ONIX3":
             self.data = self.prepare_onix3_file()
-        publishers = self.thoth.publishers(search=self.publisher_name)
+
         try:
-            self.publisher_id = publishers[0].publisherId
-        except (IndexError, AttributeError):
-            self.publisher_id = self.create_publisher()
-        try:
-            self.imprint_id = publishers[0].imprints[0].imprintId
-        except (IndexError, AttributeError):
-            self.imprint_id = self.create_imprint()
+            self.set_publisher_and_imprint()
+        except Exception:
+            # Publisher name may not be set at this point, which is OK
+            pass
 
         if self.cache_contributors:
             # create cache of all existing contributors using pagination
@@ -171,6 +170,23 @@ class BookLoader:
             "imprintUrl": self.publisher_url
         }
         return self.thoth.create_imprint(imprint)
+
+    def set_publisher_and_imprint(self):
+        if self.publisher_name:
+            publishers = self.thoth.publishers(
+                        search=self.publisher_name)
+            try:
+                self.publisher_id = publishers[0].publisherId
+            except (IndexError, AttributeError):
+                self.publisher_id = self.create_publisher()
+            try:
+                self.imprint_id = publishers[0].imprints[0].imprintId
+            except (IndexError, AttributeError):
+                self.imprint_id = self.create_imprint()
+        else:
+            # Searching on an empty publisher name would return
+            # the full set of publishers and select the first one
+            raise
 
     def is_main_contribution(self, contribution_type):
         """Return a boolean string ready for ingestion"""
@@ -234,7 +250,10 @@ class BookLoader:
             return None
         try:
             if "-" in str(isbn):
-                return str(isbn)
+                if not len(str(isbn)) == 17:
+                    raise isbn_hyphenate.IsbnMalformedError
+                else:
+                    return str(isbn)
             return isbn_hyphenate.hyphenate(str(int(isbn)))
         except ValueError:
             return None
@@ -243,11 +262,48 @@ class BookLoader:
             raise
 
     @staticmethod
+    def sanitise_url(url):
+        """Return a URL beginning https://"""
+        if not url:
+            return None
+        if url.startswith("https://"):
+            return url
+        else:
+            return "https://{}".format(url)
+
+    @staticmethod
+    def sanitise_doi(doi):
+        """Return a DOI beginning https://doi.org/"""
+        return BookLoader.sanitise_identifier(doi, "doi")
+
+    @staticmethod
+    def sanitise_orcid(orcid):
+        """Return an ORCID beginning https://orcid.org/"""
+        return BookLoader.sanitise_identifier(orcid, "orcid")
+
+    @staticmethod
+    def sanitise_ror(ror):
+        """Return a ROR beginning https://ror.org/"""
+        return BookLoader.sanitise_identifier(ror, "ror")
+
+    @staticmethod
+    def sanitise_identifier(identifier, domain):
+        """Return an identifier beginning https://{domain}.org/"""
+        if not identifier:
+            return None
+        if identifier.startswith("https://{}.org/".format(domain)):
+            return identifier
+        elif identifier.startswith("{}.org/".format(domain)):
+            return BookLoader.sanitise_url(identifier)
+        else:
+            return "https://{}.org/{}".format(domain, identifier)
+
+    @staticmethod
     def sanitise_price(price):
         """Return a float ready for ingestion"""
         try:
             return float(price.replace("$", "").strip())
-        except (TypeError, AttributeError):
+        except (TypeError, AttributeError, ValueError):
             return None
 
     @staticmethod
