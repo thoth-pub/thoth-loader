@@ -11,4 +11,4 @@ class EDITUSChapterLoader(BookLoader):
     publisher_name = "EDITUS"
 
     def run(self):
-        logging.info("hello world")
+        logging.info("hello world2")
