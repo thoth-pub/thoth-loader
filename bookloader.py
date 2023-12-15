@@ -25,7 +25,7 @@ class Deduper():  # pylint: disable=too-few-public-methods
 
 class BookLoader:
     """Generic logic to ingest metadata from CSV into Thoth"""
-    allowed_formats = ["CSV", "MARCXML", "ONIX3"]
+    allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
     import_format = "CSV"
     single_imprint = True
     publisher_name = None
@@ -112,6 +112,8 @@ class BookLoader:
             self.data = self.prepare_marcxml_file()
         elif self.import_format == "ONIX3":
             self.data = self.prepare_onix3_file()
+        elif self.import_format == "JSON":
+            self.data = self.prepare_json_file()
 
         try:
             self.set_publisher_and_imprint()
@@ -152,6 +154,11 @@ class BookLoader:
         parser = XmlParser()
         message = parser.parse(self.metadata_file, Onixmessage)
         return message
+
+    def prepare_json_file(self):
+        """Read JSON"""
+        json = json.load(self.metadata_file)
+        return json
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""
@@ -353,4 +360,3 @@ class BookLoader:
             return page_number, page_breakdown
 
         return None, None
-

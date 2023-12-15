@@ -17,8 +17,10 @@ from whpchapterloader import WHPChapterLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
+from edituschapterloader import EDITUSChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 
+"""TODO: overwrite EditusLoader with EditusChapterLoader"""
 LOADERS = {
     "OBP": OBPBookLoader,
     "OBP-chapters": ObpChapterLoader,
@@ -31,6 +33,7 @@ LOADERS = {
     "UWP": UWPLoader,
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
+    "EDITUS-chapters": EDITUSChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
 }
 
