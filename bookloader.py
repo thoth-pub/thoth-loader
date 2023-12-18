@@ -2,6 +2,7 @@
 import re
 import pandas as pd
 import isbn_hyphenate
+import json
 import pymarc
 import roman as roman
 from onix.book.v3_0.reference.strict import Onixmessage
@@ -26,7 +27,7 @@ class Deduper():  # pylint: disable=too-few-public-methods
 class BookLoader:
     """Generic logic to ingest metadata from CSV into Thoth"""
     allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
-    import_format = "CSV"
+    import_format = "JSON"
     single_imprint = True
     publisher_name = None
     publisher_shortname = None
@@ -157,8 +158,9 @@ class BookLoader:
 
     def prepare_json_file(self):
         """Read JSON"""
-        json = json.load(self.metadata_file)
-        return json
+        with open(self.metadata_file) as raw_json:
+            prepared_json = json.load(raw_json)
+        return prepared_json
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""

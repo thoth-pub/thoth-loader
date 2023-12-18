@@ -2,7 +2,7 @@
 
 import re
 import sys
-
+import json
 import numpy as np
 import pandas as pd
 import logging
@@ -44,7 +44,7 @@ class ChapterLoader:
         self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
 
-        self.data = self.prepare_file()
+        self.data = self.prepare_json_file()
         publishers = self.thoth.publishers(search=self.publisher_name)
         try:
             self.publisher_id = publishers[0].publisherId
@@ -96,6 +96,12 @@ class ChapterLoader:
         frame = frame.replace({np.nan: None})
         frame = frame.rename(columns=Deduper())
         return frame
+
+    def prepare_json_file(self):
+        """Read JSON"""
+        with open(self.metadata_file) as raw_json:
+            prepared_json = json.load(raw_json)
+        return prepared_json
 
     def is_main_contribution(self, contribution_type):
         """Return a boolean string ready for ingestion"""
