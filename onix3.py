@@ -1,7 +1,8 @@
 """Parse an ONIX 3.0 Product"""
 import re
 import logging
-from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote
+from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote, \
+TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName
 from bookloader import BookLoader
 
 
@@ -13,12 +14,25 @@ class Onix3Record:
 
     def title(self):
         title_element = self._product.descriptive_detail.title_detail[0].title_element[0]
-        try:
-            title = title_element.choice[0].value
-            subtitle = title_element.choice[1].value
-        except (ValueError, AttributeError, IndexError):
-            title = title_element.choice[0].value
-            subtitle = None
+        prefix = None
+        title = None
+        subtitle = None
+        for title_part in title_element.choice:
+            if type(title_part) is TitlePrefix:
+                prefix = title_part.value
+            if type(title_part) is TitleWithoutPrefix:
+                title = title_part.value
+            if type(title_part) is Subtitle:
+                subtitle = title_part.value
+        if title is None:
+            # title may be contained in another element type, e.g. <TitleText>
+            try:
+                title = title_element.choice[0].value
+                subtitle = title_element.choice[1].value
+            except (ValueError, AttributeError, IndexError):
+                title = title_element.choice[0].value
+        if prefix is not None:
+            title = ' '.join([prefix, title])
         return BookLoader.sanitise_title(title, subtitle)
 
     def doi(self):
@@ -49,14 +63,18 @@ class Onix3Record:
             return "MONOGRAPH"
 
     def long_abstract(self):
-        long_abstract = [text.text[0].content[0] for text in self._product.collateral_detail.text_content
-                         if text.text_type.value.value == "03"]
-        return long_abstract[0]
+        try:
+            return [text.text[0].content[0] for text in self._product.collateral_detail.text_content
+                    if text.text_type.value.value == "03"][0]
+        except IndexError:
+            return None
 
     def toc(self):
-        long_abstract = [text.text[0].content[0] for text in self._product.collateral_detail.text_content
-                         if text.text_type.value.value == "04"]
-        return long_abstract[0]
+        try:
+            return [text.text[0].content[0] for text in self._product.collateral_detail.text_content
+                    if text.text_type.value.value == "04"][0]
+        except IndexError:
+            return None
 
     def reference(self):
         return self._product.record_reference.value
@@ -71,9 +89,11 @@ class Onix3Record:
 
     def cover_url(self):
         resources = self._product.collateral_detail.supporting_resource
-        cover = [resource.resource_version[0].resource_link[0].value for resource in resources
-                 if resource.resource_content_type.value.value == "01"]
-        return cover[0]
+        try:
+            return [resource.resource_version[0].resource_link[0].value for resource in resources
+                    if resource.resource_content_type.value.value == "01"][0]
+        except IndexError:
+            return None
 
     def publication_place(self):
         return self._product.publishing_detail.city_of_publication[0].value
@@ -90,15 +110,30 @@ class Onix3Record:
     def page_count(self):
         page_count = [extent.extent_value.value for extent in self._product.descriptive_detail.extent
                       if extent.extent_type.value.value in ["00", "11"]]
-        return int(page_count[0])
+        try:
+            return int(page_count[0])
+        except IndexError:
+            return None
 
     def illustration_count(self):
-        """Get total number of illustrations from <IllustrationsNote>, which is of the form e.g. 10 bw illus"""
+        number_of_illustrations = self._product.descriptive_detail.number_of_illustrations
+        if number_of_illustrations is not None:
+            return number_of_illustrations
+        else:
+            try:
+                # Get total number of illustrations from <IllustrationsNote>, which is of the form e.g. 10 bw illus"""
+                illustrations_note = self._product.descriptive_detail.illustrations_note[0].content[0]
+                numbers = re.findall(r'\d+', illustrations_note)
+                total = sum(int(number) for number in numbers)
+                return total
+            except IndexError:
+                return None
+
+    def edition_number(self):
+        edition_number = [e.value for e in self._product.descriptive_detail.choice
+                          if type(e) is EditionNumber]
         try:
-            illustrations_note = self._product.descriptive_detail.illustrations_note[0].content[0]
-            numbers = re.findall(r'\d+', illustrations_note)
-            total = sum(int(number) for number in numbers)
-            return total
+            return int(edition_number[0])
         except IndexError:
             return None
 
@@ -109,15 +144,36 @@ class Onix3Record:
     def language_code(self):
         return self._product.descriptive_detail.language[0].language_code.value.value.upper()
 
+    def language_codes_and_roles(self):
+        languages = self._product.descriptive_detail.language
+        language_codes_and_roles = []
+        unsupported = next((x for x in languages if x.language_role.value.value not in ["01", "02"]), None)
+        if unsupported is not None:
+            raise KeyError("Unsupported language role: %s" % unsupported.language_role.value.value)
+        if next((x for x in languages if x.language_role.value.value == "02"), None) is not None:
+            language_codes_and_roles = [(language.language_code.value.value.upper(), "TRANSLATED_FROM")
+                                        for language in languages if language.language_role.value.value == "02"]
+            language_codes_and_roles.extend([(language.language_code.value.value.upper(), "TRANSLATED_INTO")
+                                             for language in languages if language.language_role.value.value == "01"])
+        else:
+            language_codes_and_roles = [(language.language_code.value.value.upper(), "ORIGINAL")
+                                        for language in languages]
+        return language_codes_and_roles
+
     def bic_codes(self):
         subjects = self._product.descriptive_detail.subject
         return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
-                if subject.subject_scheme_identifier.value.value in ["12", "13"]]
+                if subject.subject_scheme_identifier.value.value in ["12", "13", "14", "15"]]
 
     def bisac_codes(self):
         subjects = self._product.descriptive_detail.subject
         return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
-                if subject.subject_scheme_identifier.value.value == "10"]
+                if subject.subject_scheme_identifier.value.value in ["10", "11", "22"]]
+
+    def custom_codes(self):
+        subjects = self._product.descriptive_detail.subject
+        return [subject.subject_code_or_subject_heading_text[0].value for subject in subjects
+                if subject.subject_scheme_identifier.value.value == "23"]
 
     def keywords(self):
         subjects = self._product.descriptive_detail.subject
@@ -126,7 +182,8 @@ class Onix3Record:
 
     def keywords_from_text(self):
         """Used on subjects where SubjectHeadingText is used instead of SubjectCode"""
-        return [keyword for all_keywords in self.keywords() for keyword in all_keywords.split('; ')]
+        return [keyword for all_keywords in self.keywords() for keyword
+                in all_keywords.replace(',', ';').replace('; ', ';').split(';')]
 
     def thema_codes(self):
         subjects = self._product.descriptive_detail.subject
@@ -138,18 +195,37 @@ class Onix3Record:
                 for product_supply in self._product.product_supply
                 for supply_detail in product_supply.supply_detail
                 for price in supply_detail.unpriced_item_type_or_price
-                if hasattr(price, 'price_amount') and str(price.price_amount.value) != "0.00"]
+                if hasattr(price, 'price_amount') and price.price_amount is not None \
+                    and str(price.price_amount.value) != "0.00"]
+
+    def dimensions(self):
+        return [(m.measure_type.value.value, m.measure_unit_code.value.value, str(m.measurement.value))
+                for m in self._product.descriptive_detail.measure]
 
     def related_biblio_work_id(self):
         related = [ident.idvalue.value for ident in self._product.related_material.related_work[0].work_identifier
                    if ident.idtype_name.value == "Biblio Work ID"]
         return related[0]
 
+    def related_system_internal_identifier(self):
+        related = [ident.idvalue.value for ident in self._product.related_material.related_work[0].work_identifier
+                   if ident.idtype_name is not None and ident.idtype_name.value == "system-internal-identifier"]
+        return related[0]
+
     def product_type(self):
         try:
-            return self._product.descriptive_detail.product_form_detail[0].value.value
-        except IndexError:
-            return self._product.descriptive_detail.product_form_description[0].value
+            product_type = self._product.descriptive_detail.product_form_detail[0].value.value
+            # Check that this ONIX code is one we can unambiguously convert to a Thoth publication type
+            BookLoader.publication_types[product_type]
+            return product_type
+        except (IndexError, KeyError):
+            try:
+                product_type = self._product.descriptive_detail.product_form_description[0].value
+                # Check that this ONIX code is one we can unambiguously convert to a Thoth publication type
+                BookLoader.publication_types[product_type]
+                return product_type
+            except (IndexError, KeyError):
+                return self._product.descriptive_detail.product_form.value.value
 
     def available_content_url(self):
         try:
@@ -171,6 +247,11 @@ class Onix3Record:
                 if type(name) is NamesBeforeKey][0]
 
     @staticmethod
+    def get_person_name(contributor: Contributor):
+        return [name.value for name in contributor.choice
+                if type(name) is PersonName][0]
+
+    @staticmethod
     def get_affiliation(contributor: Contributor):
         logging.info(contributor.choice_1)
         return [affiliation.value
@@ -179,6 +260,18 @@ class Onix3Record:
 
     @staticmethod
     def get_biography(contributor: Contributor):
-        return [content
-                for biographical_note in contributor.choice_1
-                for content in getattr(biographical_note, 'content', [])][0]
+        try:
+            return [content
+                    for biographical_note in contributor.choice_1
+                    for content in getattr(biographical_note, 'content', [])][0]
+        except IndexError:
+            return None
+
+    @staticmethod
+    def get_orcid(contributor: Contributor):
+        try:
+            return [name_identifier.idvalue.value
+                    for name_identifier in contributor.name_identifier
+                    if name_identifier.name_idtype.value.value == "21"][0]
+        except IndexError:
+            return None

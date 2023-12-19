@@ -64,11 +64,15 @@ class BookLoader:
         "AUTHOR": "AUTHOR",
         "AUHTOR": "AUTHOR",
         "A01": "AUTHOR",
+        # A02 = "With or as told to"
+        "A02": "AUTHOR",
         "editor": "EDITOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
         "B01": "EDITOR",
         "B02": "EDITOR",
+        # B09 = "Series edited by"
+        "B09": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
         "Translator": "TRANSLATOR",
@@ -79,17 +83,39 @@ class BookLoader:
         "A24": "INTRODUCTION_BY",
         "Introduction": "INTRODUCTION_BY",
         "writer of introduction": "INTRODUCTION_BY",
+        "A15": "PREFACE_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR",
         "Research By": "RESEARCH_BY",
-        "Contributions By": "CONTRIBUTIONS_BY"
+        "Contributions By": "CONTRIBUTIONS_BY",
+        # B18 = "Prepared for publication by"
+        "B18": "CONTRIBUTIONS_BY",
     }
     publication_types = {
+        "BB": "HARDBACK",
+        "BC": "PAPERBACK",
+        "B102": "PAPERBACK",
+        "B106": "PAPERBACK",
+        "B402": "HARDBACK",
         "E101": "EPUB",
+        "E105": "HTML",
         "E107": "PDF",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
+    }
+    dimension_types = {
+        ("02", "mm"): "widthMm",
+        ("02", "cm"): "widthCm",
+        ("02", "in"): "widthIn",
+        ("01", "mm"): "heightMm",
+        ("01", "cm"): "heightCm",
+        ("01", "in"): "heightIn",
+        ("03", "mm"): "depthMm",
+        ("03", "cm"): "depthCm",
+        ("03", "in"): "depthIn",
+        ("08", "gr"): "weightG",
+        ("08", "oz"): "weightOz",
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
