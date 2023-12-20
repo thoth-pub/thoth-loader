@@ -15,7 +15,7 @@ class UOLLoader(BookLoader):
     publisher_name = "University of London Press"
     publisher_shortname = None
     publisher_url = "https://uolpress.co.uk/"
-    cache_institutions = False
+    cache_institutions = True
 
     def run(self):
         """Process ONIX and call Thoth to insert its data"""
@@ -167,11 +167,77 @@ class UOLLoader(BookLoader):
                 pass
             family_name = Onix3Record.get_key_names(contributor_record)
             full_name = Onix3Record.get_person_name(contributor_record)
-            contribution_type = self.contribution_types[contributor_record.contributor_role[0].value.value]
-            contribution_ordinal = int(contributor_record.sequence_number.value)
             orcid = Onix3Record.get_orcid(contributor_record)
-            biography = Onix3Record.get_biography(contributor_record)
-            # TODO
+
+            if orcid and orcid in self.all_contributors:
+                contributor_id = self.all_contributors[orcid]
+            elif full_name in self.all_contributors:
+                contributor_id = self.all_contributors[full_name]
+            else:
+                contributor = {
+                    "firstName": given_name,
+                    "lastName": family_name,
+                    "fullName": full_name,
+                    "orcid": orcid,
+                    "website": None,
+                }
+                logging.info(contributor)
+                contributor_id = '123456'
+                # contributor_id = self.thoth.create_contributor(contributor)
+                # cache new contributor
+                self.all_contributors[full_name] = contributor_id
+                if orcid:
+                    self.all_contributors[orcid] = contributor_id
+
+            contribution = {
+                "workId": work_id,
+                "contributorId": contributor_id,
+                "contributionType": self.contribution_types[contributor_record.contributor_role[0].value.value],
+                "mainContribution": "true",
+                "contributionOrdinal": int(contributor_record.sequence_number.value),
+                "biography": Onix3Record.get_biography(contributor_record),
+                "firstName": given_name,
+                "lastName": family_name,
+                "fullName": full_name,
+            }
+            logging.info(contribution)
+            # contribution_id = self.thoth.create_contribution(contribution)
+            contribution_id = "1234"
+
+            for index, (position, institution_string) in enumerate(Onix3Record.get_affiliations_with_positions(contributor_record)):
+                if institution_string is None:
+                    # can't add a position without an institution
+                    continue
+
+                # Institution string sometimes concludes with country name in brackets
+                # TODO could potentially extract this country name for use in creating
+                # new institution - but would have to convert to country code
+                institution_name = institution_string.split('(')[0].rstrip()
+
+                # retrieve institution or create if it doesn't exist
+                if institution_name in self.all_institutions:
+                    institution_id = self.all_institutions[institution_name]
+                else:
+                    institution = {
+                        "institutionName": institution_name,
+                        "institutionDoi": None,
+                        "ror": None,
+                        "countryCode": None,
+                    }
+                    logging.info(institution)
+                    # institution_id = self.thoth.create_institution(institution)
+                    institution_id = "1234"
+                    # cache new institution
+                    self.all_institutions[institution_name] = institution_id
+
+                affiliation = {
+                    "contributionId": contribution_id,
+                    "institutionId": institution_id,
+                    "position": position,
+                    "affiliationOrdinal": index + 1
+                }
+                logging.info(affiliation)
+                # self.thoth.create_affiliation(affiliation)
 
     def create_languages(self, record, work_id, default_language):
         """Creates language associated with the current work

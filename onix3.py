@@ -2,7 +2,7 @@
 import re
 import logging
 from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote, \
-TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName
+TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation
 from bookloader import BookLoader
 
 
@@ -259,6 +259,28 @@ class Onix3Record:
                 for affiliation in getattr(professional_affiliation, 'professional_position_or_affiliation', [])]
 
     @staticmethod
+    def get_affiliations_with_positions(contributor: Contributor):
+        affiliations = [affiliation
+                        for affiliation in contributor.choice_1
+                        if type(affiliation) is ProfessionalAffiliation]
+        affiliations_with_positions = []
+        for affiliation in affiliations:
+            try:
+                position = [position.value
+                            for position in getattr(affiliation, 'professional_position_or_affiliation', [])
+                            if type(position) is ProfessionalPosition][0]
+            except IndexError:
+                position = None
+            try:
+                institution = [insitution.value
+                            for insitution in getattr(affiliation, 'professional_position_or_affiliation', [])
+                            if type(insitution) is Affiliation][0]
+            except IndexError:
+                institution = None
+            affiliations_with_positions.append((position, institution))
+        return affiliations_with_positions
+
+    @staticmethod
     def get_biography(contributor: Contributor):
         try:
             return [content
@@ -270,8 +292,10 @@ class Onix3Record:
     @staticmethod
     def get_orcid(contributor: Contributor):
         try:
-            return [name_identifier.idvalue.value
-                    for name_identifier in contributor.name_identifier
-                    if name_identifier.name_idtype.value.value == "21"][0]
+            orcid_digits = [name_identifier.idvalue.value
+                            for name_identifier in contributor.name_identifier
+                            if name_identifier.name_idtype.value.value == "21"][0]
         except IndexError:
             return None
+        orcid_hyphenated = '-'.join(orcid_digits[i:i+4] for i in range(0, len(orcid_digits), 4))
+        return BookLoader.sanitise_orcid(orcid_hyphenated)
