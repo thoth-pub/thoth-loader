@@ -2,7 +2,7 @@
 
 import re
 import sys
-
+import json
 import numpy as np
 import pandas as pd
 import logging
@@ -23,8 +23,8 @@ class Deduper:  # pylint: disable=too-few-public-methods
         return "%s %d" % (header, self.headers[header])
 
 
-class ChapterLoader:
-    """Generic logic to ingest chapter metadata from CSV into Thoth"""
+class EDITUSLoaderFunctions:
+    """Generic logic to ingest chapter metadata from JSON into Thoth"""
     single_imprint = True
     publisher_name = None
     all_contributors = {}
@@ -40,19 +40,16 @@ class ChapterLoader:
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
 
     def __init__(self, metadata_file, client_url, email, password):
-        # get metadata file from arguments
+        logging.info("Running init in EDITUS book loader with" + self.metadata_file)
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
-        # login to (local) thoth using provided credentials
         self.thoth.login(email, password)
-        # prepare_file does """Read CSV, convert empties to None and rename duplicate columns"""
-        # so we shouldn't need this for the Editus chapter loader, because it's JSON
-        self.data = self.prepare_file()
-        logging.info(self.publisher_name)
-        # can't see what's inside here because it's a Thoth operation, i.e. I'd need to go into Thoth.
-        # but it also doesn't matter because in obpchapterloader, they just say that publisher_name is
-        # "Open Book Publishers"
-        publishers = self.thoth.publishers(search=self.publisher_name)
+
+        self.data = self.prepare_json_file()
+        logging.info(self.data[0]["doi_number"])
+        logging.info(len(self.data))
+        # logging.info("The first record is " + self.data)
+        publishers = self.thoth.publishers(search=self.data[0]["publisher"])
         try:
             self.publisher_id = publishers[0].publisherId
         except (IndexError, AttributeError):
@@ -103,6 +100,12 @@ class ChapterLoader:
         frame = frame.replace({np.nan: None})
         frame = frame.rename(columns=Deduper())
         return frame
+
+    def prepare_json_file(self):
+        """Read JSON"""
+        with open(self.metadata_file) as raw_json:
+            prepared_json = json.load(raw_json)
+        return prepared_json
 
     def is_main_contribution(self, contribution_type):
         """Return a boolean string ready for ingestion"""

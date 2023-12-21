@@ -1,12 +1,10 @@
-"""Load a CSV file into Thoth"""
+"""Load a JSON file into Thoth"""
 import re
-import pandas as pd
 import isbn_hyphenate
 import json
 import pymarc
+import logging
 import roman as roman
-from onix.book.v3_0.reference.strict import Onixmessage
-from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
 
 
@@ -24,7 +22,7 @@ class Deduper():  # pylint: disable=too-few-public-methods
         return "%s %d" % (header, self.headers[header])
 
 
-class BookLoader:
+class EditusBookLoaderFunctions:
     """Generic logic to ingest metadata from CSV into Thoth"""
     allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
     import_format = "CSV"
@@ -101,12 +99,14 @@ class BookLoader:
     video_regex = re.compile(r'[0-9]{1,3} \(vid\)')
 
     def __init__(self, metadata_file, client_url, email, password):
+
         if self.import_format not in self.allowed_formats:
             raise
         self.metadata_file = metadata_file
+        logging.info("Running init in EDITUS book loader with" + self.metadata_file)
         self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
-
+        # logging.info("Logged into Thoth")
         if self.import_format == "CSV":
             self.data = self.prepare_csv_file()
         elif self.import_format == "MARCXML":
@@ -115,6 +115,7 @@ class BookLoader:
             self.data = self.prepare_onix3_file()
         elif self.import_format == "JSON":
             self.data = self.prepare_json_file()
+            # logging.info("JSON imported successfully")
 
         try:
             self.set_publisher_and_imprint()

@@ -3,12 +3,13 @@
 
 import logging
 import requests
-from editusbookloaderfunctions import EditusBookLoaderFunctions
+from bookloader import BookLoader
+from onix3 import Onix3Record
 
 
-class EDITUSLoader(EditusBookLoaderFunctions):
-    """EDITUS specific logic to ingest metadata from JSON into Thoth"""
-    import_format = "JSON"
+class EDITUSLoader(BookLoader):
+    """EDITUS specific logic to ingest metadata from ONIX into Thoth"""
+    import_format = "ONIX3"
     single_imprint = True
     publisher_name = "EDITUS"
     publisher_shortname = None
@@ -16,68 +17,67 @@ class EDITUSLoader(EditusBookLoaderFunctions):
     cache_institutions = False
 
     def run(self):
-        """Process JSON and call Thoth to insert its data"""
-        # TODO: change
-        logging.info("run function in editusloader.py")
-        for record in self.data:
-        # for product in self.data.no_product_or_product:
-            # logging.info(record)
-            logging.info("Running get_work in editusloader")
+        """Process ONIX and call Thoth to insert its data"""
+        for product in self.data.no_product_or_product:
+            record = Onix3Record(product)
             work = self.get_work(record, self.imprint_id)
-            # logging.info(work)
-            # TODO: Either ubiquity or Onix3 loader contains logic to overwrite existing records
+            logging.info(work)
             work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_publications(record, work_id)
-            # self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
+            self.create_publications(record, work_id)
+            self.create_contributors(record, work_id)
+            self.create_languages(record, work_id)
+            self.create_subjects(record, work_id)
 
     @staticmethod
     def get_work(record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
 
-        record: current JSON record
+        record: current onix record
 
         imprint_id: previously obtained ID of this work's imprint
         """
-        # title = record["title"]
-        # logging.info("Title recorded in work as " + title)
-        # doi = record.doi()
+        title = record.title()
+        doi = record.doi()
 
         # resolve DOI to obtain landing page
-        # landing_page = requests.get(doi).url
+        landing_page = requests.get(doi).url
+
+        # get license if it has one
+        try:
+            epub_license = record.license()
+        except AttributeError:
+            epub_license = None
 
         work = {
-            # TODO: fix this using work_types so it is read from the JSON
-            "workType": "MONOGRAPH",
+            "workType": record.work_type(),
             "workStatus": "ACTIVE",
-            "fullTitle": record["title"],
-            "title": record["title"], #TODO: if there's a colon, put rest in subtitle field
-            "subtitle": None,
-            "reference": record["_id"],
+            "fullTitle": title["fullTitle"],
+            "title": title["title"],
+            "subtitle": title["subtitle"],
+            "reference": None,
             "edition": 1,
             "imprintId": imprint_id,
-            "doi": record["doi_number"],
-            "publicationDate": record["year"], #TODO: currently just Y, make into M/D/Y
-            "place": record["city"], #TODO: concat with "country" from JSON
-            "pageCount": record["pages"],
+            "doi": doi,
+            "publicationDate": record.publication_date(),
+            "place": None,
+            "pageCount": record.page_count(),
             "pageBreakdown": None,
             "imageCount": None,
             "tableCount": None,
             "audioCount": None,
             "videoCount": None,
-            "license": record["use_licence"],
+            "license": epub_license,
             "copyrightHolder": None,
-            "landingPage": record["doi_number"],
+            "landingPage": landing_page,
             "lccn": None,
             "oclc": None,
             "shortAbstract": None,
-            "longAbstract": record["synopsis"],
+            "longAbstract": record.long_abstract().replace("\r", ""),
             "generalNote": None,
             "bibliographyNote": None,
             "toc": None,
-            "coverUrl": None, # TODO: write a method to construct cover URL from "cover" "filename" in JSON
+            "coverUrl": record.cover_url(),
             "coverCaption": None,
             "firstPage": None,
             "lastPage": None,
@@ -85,10 +85,10 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         }
         return work
 
-    def create_pdf_publications(self, record, work_id):
-        """Creates PDF publication and prices associated with the current work
+    def create_publications(self, record, work_id):
+        """Creates EPUB publication and prices associated with the current work
 
-        record: current JSON record
+        record: current onix record
 
         work_id: previously obtained ID of the current work
         """
@@ -123,7 +123,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work
 
-        record: current JSON record
+        record: current onix record
 
         work_id: previously obtained ID of the current work
         """

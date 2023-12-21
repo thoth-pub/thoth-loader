@@ -17,8 +17,10 @@ class ObpChapterLoader(ChapterLoader):
     def run(self):
         """Process CSV and call Thoth to insert its data"""
         book_doi = self.data.at[0, 'doi'].strip().lower()[:-3]  # OBP chapter DOIs are book's + ".00"
+        logging.info("DOI is " + book_doi)
         book_id = self.get_work_by_doi(book_doi)['workId']
-
+        logging.info(book_id)
+        logging.info(self.data.index)
         relation_ordinal = 1
         for row in self.data.index:
             work = self.get_work(row, self.imprint_id)
