@@ -44,8 +44,7 @@ class UOLLoader(BookLoader):
             self.create_languages(canonical_record, work_id, default_language)
             self.create_subjects(canonical_record, work_id)
 
-    @staticmethod
-    def get_work(record, imprint_id):
+    def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
 
         record: current onix record
@@ -62,7 +61,9 @@ class UOLLoader(BookLoader):
             doi = None
             landing_page = None
 
-        edition = record.edition_number() if not None else 1
+        edition = record.edition_number()
+        if edition is None:
+            edition = 1
 
         long_abstract = record.long_abstract()
         if long_abstract is not None:
@@ -70,7 +71,7 @@ class UOLLoader(BookLoader):
 
         work = {
             "workType": record.work_type(),
-            "workStatus": "ACTIVE",
+            "workStatus": self.work_statuses[record.work_status()],
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],

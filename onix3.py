@@ -101,6 +101,9 @@ class Onix3Record:
     def publication_date(self):
         return BookLoader.sanitise_date(self._product.publishing_detail.publishing_date[0].date.value)
 
+    def work_status(self):
+        return self._product.publishing_detail.publishing_status.value.value
+
     def oapen_url(self):
         locations = self._product.product_supply[0].supply_detail
         oapen = [location.supplier.website[0].website_link[0].value for location in locations
@@ -118,7 +121,7 @@ class Onix3Record:
     def illustration_count(self):
         number_of_illustrations = self._product.descriptive_detail.number_of_illustrations
         if number_of_illustrations is not None:
-            return number_of_illustrations
+            return number_of_illustrations.value
         else:
             try:
                 # Get total number of illustrations from <IllustrationsNote>, which is of the form e.g. 10 bw illus"""

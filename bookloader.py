@@ -53,10 +53,16 @@ class BookLoader:
     work_statuses = {
         "Active": "ACTIVE",
         "ACTIVE": "ACTIVE",
+        "04": "ACTIVE",
         "Cancelled": "CANCELLED",
         "Forthcoming": "FORTHCOMING",
+        "02": "FORTHCOMING",
         "Out of print": "OUT_OF_PRINT",
-        "Withdrawn": "WITHDRAWN_FROM_SALE"
+        "07": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE",
+        "05": "NO_LONGER_OUR_PRODUCT",
+        "06": "OUT_OF_STOCK_INDEFINITELY",
+        "09": "UNKNOWN",
     }
     contribution_types = {
         "Author": "AUTHOR",
