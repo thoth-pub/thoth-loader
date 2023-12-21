@@ -41,16 +41,24 @@ class EDITUSLoader(EditusBookLoaderFunctions):
 
         imprint_id: previously obtained ID of this work's imprint
         """
-        # title = record["title"]
-        # logging.info("Title recorded in work as " + title)
-        # doi = record.doi()
+        titlevar = ""
+        title = titlevar.split_title(record["title"])
+        logging.info("Split title is" + title["title"] + " " + title["subtitle"])
 
-        # resolve DOI to obtain landing page
-        # landing_page = requests.get(doi).url
+        editus_work_types = {
+        "Monograph": "MONOGRAPH",
+        "MONOGRAPH": "MONOGRAPH",
+        "Book": "MONOGRAPH",
+        "Edited book": "EDITED_BOOK",
+        "Edited Book": "EDITED_BOOK",
+        "EDITED_BOOK": "EDITED_BOOK",
+        "Journal Issue": "JOURNAL_ISSUE",
+        "Journal": "JOURNAL_ISSUE"
+        }
+
 
         work = {
-            # TODO: fix this using work_types so it is read from the JSON
-            "workType": "MONOGRAPH",
+            "workType": editus_work_types[record["TYPE"]], # TODO: refactor to use work_types dictionary from bookloader. Ask Javi about this
             "workStatus": "ACTIVE",
             "fullTitle": record["title"],
             "title": record["title"], #TODO: if there's a colon, put rest in subtitle field
@@ -59,7 +67,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "edition": 1,
             "imprintId": imprint_id,
             "doi": record["doi_number"],
-            "publicationDate": record["year"], #TODO: currently just Y, make into M/D/Y
+            "publicationDate": record["year"], #TODO: currently just Y, make into M/D/Y with 1/1/YYYY
             "place": record["city"], #TODO: concat with "country" from JSON
             "pageCount": record["pages"],
             "pageBreakdown": None,
@@ -83,6 +91,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "lastPage": None,
             "pageInterval": None,
         }
+        logging.info
         return work
 
     def create_pdf_publications(self, record, work_id):
