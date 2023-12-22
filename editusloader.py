@@ -4,6 +4,7 @@
 import logging
 import requests
 from editusbookloaderfunctions import EditusBookLoaderFunctions
+from thothlibrary import ThothError
 
 
 class EDITUSLoader(EditusBookLoaderFunctions):
@@ -21,10 +22,15 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         for record in self.data:
             # logging.info("Running get_work in editusloader")
             work = self.get_work(record, self.imprint_id)
-            # TODO: Either ubiquity or Onix3 loader contains logic to overwrite existing records
-            work_id = self.thoth.create_work(work)
+            try:
+                work_id = self.thoth.work_by_doi(work['doi']).workId
+                existing_work = self.thoth.work_by_id(work_id)
+                existing_work.update((k, v) for k, v in work.items() if v is not None)
+                self.thoth.update_work(existing_work)
+            except (IndexError, AttributeError, ThothError):
+                work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_publications(record, work_id)
+            self.create_pdf_publication(record, work_id)
             # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
@@ -50,7 +56,6 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
         }
-
 
         work = {
             "workType": editus_work_types[record["TYPE"]], # TODO: refactor to use work_types dictionary from bookloader. Ask Javi about this
@@ -88,26 +93,18 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         }
         return work
 
-    def create_pdf_publications(self, record, work_id):
-        """Creates PDF publication and prices associated with the current work
+    def create_pdf_publication(self, record, work_id):
+        """Creates PDF publication and location associated with the current work
 
         record: current JSON record
 
         work_id: previously obtained ID of the current work
         """
-        def create_price():
-            price = {
-                "publicationId": publication_id,
-                "currencyCode": currency_code,
-                "unitPrice": unit_price,
-            }
-            self.thoth.create_price(price)
-            logging.info(price)
 
         publication = {
             "workId": work_id,
-            "publicationType": "EPUB",
-            "isbn": record.isbn(),
+            "publicationType": "PDF",
+            "isbn": None,
             "widthMm": None,
             "widthIn": None,
             "heightMm": None,
@@ -117,11 +114,20 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightG": None,
             "weightOz": None,
         }
-        publication_id = self.thoth.create_publication(publication)
+        pdf_publication_id = self.thoth.create_publication(publication)
         logging.info(publication)
 
-        for currency_code, unit_price in record.prices():
-            create_price()
+        def create_pdf_location():
+            location = {
+                "publicationId": pdf_publication_id,
+                "landingPage": record["books_url"],
+                "fullTextUrl": record["pdf_url"],
+                "locationPlatform": "OTHER", #TODO: Ask Javi to add SciELO to the list of location platforms
+                "canonical": "true",
+            }
+            self.thoth.create_location(location)
+            logging.info(location)
+        create_pdf_location()
 
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work
