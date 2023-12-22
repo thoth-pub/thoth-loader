@@ -30,7 +30,8 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            self.create_pdf_publication(record, work_id)
+            # self.create_pdf_publication(record, work_id)
+            # self.create_epub_publication(record, work_id)
             # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
@@ -114,12 +115,12 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightG": None,
             "weightOz": None,
         }
-        pdf_publication_id = self.thoth.create_publication(publication)
+        publication_id = self.thoth.create_publication(publication)
         logging.info(publication)
 
         def create_pdf_location():
             location = {
-                "publicationId": pdf_publication_id,
+                "publicationId": publication_id,
                 "landingPage": record["books_url"],
                 "fullTextUrl": record["pdf_url"],
                 "locationPlatform": "OTHER", #TODO: Ask Javi to add SciELO to the list of location platforms
@@ -128,6 +129,43 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             self.thoth.create_location(location)
             logging.info(location)
         create_pdf_location()
+
+    def create_epub_publication(self, record, work_id):
+        """Creates EPUB publication and location associated with the current work
+
+        record: current JSON record
+
+        work_id: previously obtained ID of the current work
+        """
+
+        publication = {
+            "workId": work_id,
+            "publicationType": "EPUB",
+            # TODO: address bug with isbn_hyphenate library
+            # "isbn": self.sanitise_isbn(record["eisbn"]),
+            "isbn": None,
+            "widthMm": None,
+            "widthIn": None,
+            "heightMm": None,
+            "heightIn": None,
+            "depthMm": None,
+            "depthIn": None,
+            "weightG": None,
+            "weightOz": None,
+        }
+        publication_id = self.thoth.create_publication(publication)
+        logging.info(publication)
+        def create_epub_location():
+            location = {
+                "publicationId": publication_id,
+                "landingPage": record["books_url"],
+                "fullTextUrl": record["epub_url"],
+                "locationPlatform": "OTHER", #TODO: Ask Javi to add SciELO to the list of location platforms
+                "canonical": "true",
+            }
+            self.thoth.create_location(location)
+            logging.info(location)
+        create_epub_location()
 
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work
