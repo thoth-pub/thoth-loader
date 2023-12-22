@@ -103,7 +103,7 @@ class EditusBookLoaderFunctions:
         if self.import_format not in self.allowed_formats:
             raise
         self.metadata_file = metadata_file
-        logging.info("Running init in EDITUS book loader with" + self.metadata_file)
+        # logging.info("Running init in EDITUS book loader with" + self.metadata_file)
         self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
         # logging.info("Logged into Thoth")
@@ -115,7 +115,7 @@ class EditusBookLoaderFunctions:
             self.data = self.prepare_onix3_file()
         elif self.import_format == "JSON":
             self.data = self.prepare_json_file()
-            # logging.info("JSON imported successfully")
+            # logging.info("JSON imported successfully using Editus Book Loader Functions")
 
         try:
             self.set_publisher_and_imprint()

@@ -17,14 +17,10 @@ class EDITUSLoader(EditusBookLoaderFunctions):
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-        # TODO: change
         logging.info("run function in editusloader.py")
         for record in self.data:
-        # for product in self.data.no_product_or_product:
-            # logging.info(record)
-            logging.info("Running get_work in editusloader")
+            # logging.info("Running get_work in editusloader")
             work = self.get_work(record, self.imprint_id)
-            # logging.info(work)
             # TODO: Either ubiquity or Onix3 loader contains logic to overwrite existing records
             work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
@@ -33,17 +29,16 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
 
-    @staticmethod
-    def get_work(record, imprint_id):
+    # @staticmethod TODO: ask Javi why this was here as a static method and if that's necessary.
+    def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
 
         record: current JSON record
 
         imprint_id: previously obtained ID of this work's imprint
         """
-        titlevar = ""
-        title = titlevar.split_title(record["title"])
-        logging.info("Split title is" + title["title"] + " " + title["subtitle"])
+        title = self.split_title(record["title"])
+        publication_date = self.sanitise_date(record["year"])
 
         editus_work_types = {
         "Monograph": "MONOGRAPH",
@@ -60,15 +55,15 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         work = {
             "workType": editus_work_types[record["TYPE"]], # TODO: refactor to use work_types dictionary from bookloader. Ask Javi about this
             "workStatus": "ACTIVE",
-            "fullTitle": record["title"],
-            "title": record["title"], #TODO: if there's a colon, put rest in subtitle field
-            "subtitle": None,
+            "fullTitle": title["fullTitle"],
+            "title": title["title"],
+            "subtitle": title["subtitle"],
             "reference": record["_id"],
             "edition": 1,
             "imprintId": imprint_id,
             "doi": record["doi_number"],
-            "publicationDate": record["year"], #TODO: currently just Y, make into M/D/Y with 1/1/YYYY
-            "place": record["city"], #TODO: concat with "country" from JSON
+            "publicationDate": publication_date,
+            "place": record["city"] + ", " + record["country"],
             "pageCount": record["pages"],
             "pageBreakdown": None,
             "imageCount": None,
@@ -77,7 +72,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "videoCount": None,
             "license": record["use_licence"],
             "copyrightHolder": None,
-            "landingPage": record["doi_number"],
+            "landingPage": record["books_url"],
             "lccn": None,
             "oclc": None,
             "shortAbstract": None,
@@ -85,13 +80,12 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "generalNote": None,
             "bibliographyNote": None,
             "toc": None,
-            "coverUrl": None, # TODO: write a method to construct cover URL from "cover" "filename" in JSON
+            "coverUrl": record["cover_url"],
             "coverCaption": None,
             "firstPage": None,
             "lastPage": None,
             "pageInterval": None,
         }
-        logging.info
         return work
 
     def create_pdf_publications(self, record, work_id):
