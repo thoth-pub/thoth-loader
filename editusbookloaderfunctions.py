@@ -257,17 +257,25 @@ class EditusBookLoaderFunctions:
     def sanitise_isbn(isbn):
         """Return a hyphenated ISBN"""
         if not isbn:
+            logging.info("ISBN is empty")
             return None
         try:
             if "-" in str(isbn):
+                logging.info("ISBN has hyphens")
                 if not len(str(isbn)) == 17:
+                    logging.info("ISBN is malformed")
                     raise isbn_hyphenate.IsbnMalformedError
                 else:
+                    logging.info("ISBN is well-formed")
                     return str(isbn)
+            # logging.info("ISBN successfully hypenated")
+            logging.info("Hyphenated ISBN is " + isbn_hyphenate.hyphenate(str(int(isbn))))
             return isbn_hyphenate.hyphenate(str(int(isbn)))
         except ValueError:
+            logging.info("ISBN is not a number")
             return None
         except isbn_hyphenate.IsbnMalformedError:
+            logging.info("ISBN is malformed error")
             print(isbn)
             raise
 

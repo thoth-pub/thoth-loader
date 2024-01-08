@@ -31,7 +31,8 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
             # self.create_pdf_publication(record, work_id)
-            # self.create_epub_publication(record, work_id)
+            self.create_epub_publication(record, work_id)
+            # TODO: complete the following functions
             # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
@@ -142,8 +143,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "workId": work_id,
             "publicationType": "EPUB",
             # TODO: address bug with isbn_hyphenate library
-            # "isbn": self.sanitise_isbn(record["eisbn"]),
-            "isbn": None,
+            "isbn": self.sanitise_isbn(record["eisbn"]),
             "widthMm": None,
             "widthIn": None,
             "heightMm": None,
@@ -153,8 +153,10 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightG": None,
             "weightOz": None,
         }
-        publication_id = self.thoth.create_publication(publication)
         logging.info(publication)
+        logging.info(record["eisbn"])
+        publication_id = self.thoth.create_publication(publication)
+
         def create_epub_location():
             location = {
                 "publicationId": publication_id,
