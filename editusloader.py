@@ -18,7 +18,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-        logging.info("run function in editusloader.py")
+        # logging.info("run function in editusloader.py")
         for record in self.data:
             # logging.info("Running get_work in editusloader")
             work = self.get_work(record, self.imprint_id)
@@ -29,13 +29,13 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 self.thoth.update_work(existing_work)
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
-            logging.info('workId: %s' % work_id)
+            # logging.info('workId: %s' % work_id)
             # self.create_pdf_publication(record, work_id)
-            self.create_epub_publication(record, work_id)
-            # TODO: complete the following functions
+            # self.create_epub_publication(record, work_id)
             # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
+            # TODO: complete the following functions and add functions for series, etc.
+            self.create_subjects(record, work_id)
 
     # @staticmethod TODO: ask Javi why this was here as a static method and if that's necessary.
     def get_work(self, record, imprint_id):
@@ -58,6 +58,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
         }
+
 
         work = {
             "workType": editus_work_types[record["TYPE"]], # TODO: refactor to use work_types dictionary from bookloader. Ask Javi about this
@@ -142,7 +143,6 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         publication = {
             "workId": work_id,
             "publicationType": "EPUB",
-            # TODO: address bug with isbn_hyphenate library
             "isbn": self.sanitise_isbn(record["eisbn"]),
             "widthMm": None,
             "widthIn": None,
@@ -170,26 +170,39 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         create_epub_location()
 
     def create_contributors(self, record, work_id):
-        """Creates all contributions associated with the current work
 
-        record: current JSON record
-
-        work_id: previously obtained ID of the current work
-        """
-        for contributor in record.contributors():
-            full_name_inverted = contributor.choice[1].value.split(',')
-            name = full_name_inverted[1]
+        editus_contribution_types = {
+        "individual_author": "AUTHOR",
+        "organizer": "EDITOR",
+        "translator": "TRANSLATOR",
+        }
+        contribution_ordinal = 0
+        # logging.info(record["creators"])
+        for creator in record["creators"]:
+            # logging.info("contributor info: ")
+            # logging.info(contributor)
+            # contributor: [['role', 'individual_author'], ['full_name', 'Silva, Dandara dos Santos'], ['link_resume', 'http://lattes.cnpq.br/6576230530529409']]
+            full_name_inverted = creator[1][1].split(',')
+            name = full_name_inverted[1].strip()
             surname = full_name_inverted[0]
             fullname = f"{name} {surname}"
-            contribution_type = self.contribution_types[contributor.contributor_role[0].value.value]
-            contribution_ordinal = int(contributor.sequence_number.value)
+            # logging.info("JSON contribution_type: ")
+            # logging.info(creator[0][1])
+            contribution_type = editus_contribution_types[creator[0][1]]
+            is_main = "true" if contribution_type in ["AUTHOR", "EDITOR"] else "false"
+            contribution_ordinal += 1
+            # logging.info("Thoth contribution_type: ")
+            # logging.info(contribution_type)
+            # contribution_ordinal = int(creator.sequence_number.value) # TODO: ask Javi if I can just do +1 like in Ubiquity loader
             contributor = {
                 "firstName": name,
                 "lastName": surname,
                 "fullName": fullname,
-                "orcid": None,
-                "website": None
+                "orcid": None, # TODO ORCID can be gotten from the link_resume field, which is a profile page that links to ORCID
+                "website": creator[2][1]
             }
+            logging.info("contributor info: ")
+            logging.info(contributor)
             if fullname not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
@@ -200,36 +213,43 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 "workId": work_id,
                 "contributorId": contributor_id,
                 "contributionType": contribution_type,
-                "mainContribution": "true",
+                "mainContribution": is_main,
                 "contributionOrdinal": contribution_ordinal,
                 "biography": None,
                 "firstName": name,
                 "lastName": surname,
                 "fullName": fullname,
             }
+            logging.info("contribution info: ")
             logging.info(contribution)
-            self.thoth.create_contribution(contribution)
+            # self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
         """Creates language associated with the current work
 
-        record: current onix record
+        record: current JSON record
 
         work_id: previously obtained ID of the current work
         """
+        editus_languages = {
+        "pt": "POR",
+        "en": "ENG",
+        "es": "SPA",
+        }
+        languageCode = editus_languages[record["language"]]
         language = {
             "workId": work_id,
-            "languageCode": record.language_code(),
+            "languageCode": languageCode,
             "languageRelation": "ORIGINAL",
             "mainLanguage": "true"
         }
         logging.info(language)
-        self.thoth.create_language(language)
+        # self.thoth.create_language(language)
 
     def create_subjects(self, record, work_id):
         """Creates all subjects associated with the current work
 
-        record: current onix record
+        record: current JSON record
 
         work_id: previously obtained ID of the current work
         """
