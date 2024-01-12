@@ -29,13 +29,14 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_pdf_publication(record, work_id)
-            # self.create_epub_publication(record, work_id)
-            # self.create_print_publication(record, work_id)
-            # self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
-            # self.create_series(record, work_id)
+            self.create_pdf_publication(record, work_id)
+            self.create_epub_publication(record, work_id)
+            self.create_print_publication(record, work_id)
+            self.create_contributors(record, work_id)
+            self.create_languages(record, work_id)
+            self.create_subjects(record, work_id)
+            self.create_series(record, work_id)
+            # ignore series data: SciELO series don't include ISSN, which is a required field in Thoth.
             # self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
