@@ -29,6 +29,7 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
+            logging.info('imprint_id: %s' % self.imprint_id)
             # self.create_pdf_publication(record, work_id)
             # self.create_epub_publication(record, work_id)
             # self.create_print_publication(record, work_id)
@@ -290,7 +291,7 @@ class SciELOLoader(BookLoader):
                 logging.info(subject)
         create_keyword_subjects()
 
-    def create_series(self, record, work_id, imprint_id):
+    def create_series(self, record, imprint_id, work_id):
         """Creates series associated with the current work
 
         record: current JSON record
@@ -304,10 +305,11 @@ class SciELOLoader(BookLoader):
         collection_title = record["collection"][2][1]
         if series_name:
             series = {
-                "workId": work_id,
                 "seriesType": series_type,
                 "seriesName": series_name,
+                "seriesDescription": None,
                 "seriesNumber": None,
+                "seriesCfpUrl": None,
                 "seriesUrl": None,
                 "issnPrint": None,
                 "issnDigital": issn_digital,
@@ -316,14 +318,16 @@ class SciELOLoader(BookLoader):
                 "issnNetwork": None,
                 "issnNetworkUrl": None,
                 "seriesNote": None,
+                "imprintId": imprint_id
             }
             logging.info(series)
         elif collection_title:
             series = {
-                "workId": work_id,
                 "seriesType": series_type,
                 "seriesName": collection_title,
+                "seriesDescription": None,
                 "seriesNumber": None,
+                "seriesCfpUrl": None,
                 "seriesUrl": None,
                 "issnPrint": None,
                 "issnDigital": None,
