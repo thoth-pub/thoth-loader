@@ -29,7 +29,6 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            logging.info('imprint_id: %s' % self.imprint_id)
             # self.create_pdf_publication(record, work_id)
             # self.create_epub_publication(record, work_id)
             # self.create_print_publication(record, work_id)
@@ -37,7 +36,7 @@ class SciELOLoader(BookLoader):
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
             # self.create_series(record, work_id)
-            self.create_series(record, self.imprint_id, work_id)
+            # self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -291,6 +290,8 @@ class SciELOLoader(BookLoader):
                 logging.info(subject)
         create_keyword_subjects()
 
+    # TODO: problem with create_series: SciELO series don't include ISSN, which is a required field in Thoth.
+    # so this function doesn't currently work
     def create_series(self, record, imprint_id, work_id):
         """Creates series associated with the current work
 
@@ -305,38 +306,26 @@ class SciELOLoader(BookLoader):
         collection_title = record["collection"][2][1]
         if series_name:
             series = {
+                "imprintId": imprint_id,
                 "seriesType": series_type,
                 "seriesName": series_name,
-                "seriesDescription": None,
-                "seriesNumber": None,
-                "seriesCfpUrl": None,
-                "seriesUrl": None,
                 "issnPrint": None,
                 "issnDigital": issn_digital,
-                "issnL": None,
-                "issnLUrl": None,
-                "issnNetwork": None,
-                "issnNetworkUrl": None,
-                "seriesNote": None,
-                "imprintId": imprint_id
+                "seriesUrl": None,
+                "seriesDescription": None,
+                "seriesCfpUrl": None
             }
             logging.info(series)
         elif collection_title:
             series = {
+                "imprintId": imprint_id,
                 "seriesType": series_type,
                 "seriesName": collection_title,
-                "seriesDescription": None,
-                "seriesNumber": None,
-                "seriesCfpUrl": None,
-                "seriesUrl": None,
                 "issnPrint": None,
                 "issnDigital": None,
-                "issnL": None,
-                "issnLUrl": None,
-                "issnNetwork": None,
-                "issnNetworkUrl": None,
-                "seriesNote": None,
-                "imprintId": imprint_id
+                "seriesUrl": None,
+                "seriesDescription": None,
+                "seriesCfpUrl": None
             }
             logging.info(series)
         if series:
