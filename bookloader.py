@@ -25,7 +25,7 @@ class Deduper():  # pylint: disable=too-few-public-methods
 
 
 class BookLoader:
-    """Generic logic to ingest metadata from CSV into Thoth"""
+    """Generic logic to ingest metadata from CSV, MARCXML, ONIX, or JSON into Thoth"""
     allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
     import_format = "CSV"
     single_imprint = True

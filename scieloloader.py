@@ -1,27 +1,25 @@
 #!/usr/bin/env python
-"""Load EDITUS metadata into Thoth"""
-# TODO: rename file scieloloader.py, change references to it in the code, and change the name of the class to SciELOLoader
+"""Load SciELO metadata into Thoth"""
 
 import logging
-from editusbookloaderfunctions import EditusBookLoaderFunctions
+from bookloader import BookLoader
 from thothlibrary import ThothError
 
 
-class EDITUSLoader(EditusBookLoaderFunctions):
-    """EDITUS specific logic to ingest metadata from JSON into Thoth"""
+class SciELOLoader(BookLoader):
+    """SciELO specific logic to ingest metadata from JSON into Thoth"""
     import_format = "JSON"
     single_imprint = True
+    # TODO: when ingesting other publishers, change name.
     publisher_name = "EDITUS"
     publisher_shortname = None
-    # TODO: change for other publishers EDUFBA, etc.
+    # TODO: when ingesting other publishers, change URL.
     publisher_url = "http://www.uesc.br/editora/"
     cache_institutions = False
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-        # logging.info("run function in editusloader.py")
         for record in self.data:
-            # logging.info("Running get_work in editusloader")
             work = self.get_work(record, self.imprint_id)
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -30,7 +28,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 self.thoth.update_work(existing_work)
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
-            # logging.info('workId: %s' % work_id)
+            logging.info('workId: %s' % work_id)
             # self.create_pdf_publication(record, work_id)
             # self.create_epub_publication(record, work_id)
             # self.create_print_publication(record, work_id)
@@ -38,6 +36,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
             # self.create_series(record, work_id)
+            self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -49,7 +48,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         title = self.split_title(record["title"])
         publication_date = self.sanitise_date(record["year"])
 
-        editus_work_types = {
+        scielo_work_types = {
         "Monograph": "MONOGRAPH",
         "MONOGRAPH": "MONOGRAPH",
         "Book": "MONOGRAPH",
@@ -61,7 +60,8 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         }
 
         work = {
-            "workType": editus_work_types[record["TYPE"]],
+            # TODO: workType is "Edited Book" for books with one or more editors, otherwise Monograph. See old Editus loader.
+            "workType": scielo_work_types[record["TYPE"]],
             "workStatus": "ACTIVE",
             "fullTitle": title["fullTitle"],
             "title": title["title"],
@@ -94,7 +94,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "lastPage": None,
             "pageInterval": None,
         }
-        logging.info(work)
+        logging.info(title["title"])
         return work
 
     def create_pdf_publication(self, record, work_id):
@@ -119,8 +119,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightOz": None,
         }
         publication_id = self.thoth.create_publication(publication)
-        logging.info(publication)
-
+        logging.info('publicationId: %s' % publication_id)
         def create_pdf_location():
             location = {
                 "publicationId": publication_id,
@@ -154,7 +153,6 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightG": None,
             "weightOz": None,
         }
-        logging.info(publication)
         logging.info(record["eisbn"])
         publication_id = self.thoth.create_publication(publication)
 
@@ -191,43 +189,31 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "weightG": None,
             "weightOz": None,
         }
-        logging.info(publication)
-        logging.info(record["isbn"])
-        # publication_id = self.thoth.create_publication(publication)
+        self.thoth.create_publication(publication)
 
     def create_contributors(self, record, work_id):
 
-        editus_contribution_types = {
+        scielo_contribution_types = {
         "individual_author": "AUTHOR",
         "organizer": "EDITOR",
         "translator": "TRANSLATOR",
         }
         contribution_ordinal = 0
-        # logging.info(record["creators"])
         for creator in record["creators"]:
-            # logging.info("contributor info: ")
-            # logging.info(contributor)
-            # contributor: [['role', 'individual_author'], ['full_name', 'Silva, Dandara dos Santos'], ['link_resume', 'http://lattes.cnpq.br/6576230530529409']]
             full_name_inverted = creator[1][1].split(',')
             name = full_name_inverted[1].strip()
             surname = full_name_inverted[0]
             fullname = f"{name} {surname}"
-            # logging.info("JSON contribution_type: ")
-            # logging.info(creator[0][1])
-            contribution_type = editus_contribution_types[creator[0][1]]
+            contribution_type = scielo_contribution_types[creator[0][1]]
             is_main = "true" if contribution_type in ["AUTHOR", "EDITOR"] else "false"
             contribution_ordinal += 1
-            # logging.info("Thoth contribution_type: ")
-            # logging.info(contribution_type)
             contributor = {
                 "firstName": name,
                 "lastName": surname,
                 "fullName": fullname,
-                "orcid": None, # TODO ORCID can be gotten from the link_resume field, which is a profile page that links to ORCID
+                "orcid": None,
                 "website": creator[2][1]
             }
-            logging.info("contributor info: ")
-            logging.info(contributor)
             if fullname not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
@@ -245,9 +231,8 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 "lastName": surname,
                 "fullName": fullname,
             }
-            logging.info("contribution info: ")
             logging.info(contribution)
-            # self.thoth.create_contribution(contribution)
+            self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
         """Creates language associated with the current work
@@ -256,12 +241,12 @@ class EDITUSLoader(EditusBookLoaderFunctions):
 
         work_id: previously obtained ID of the current work
         """
-        editus_languages = {
+        scielo_languages = {
         "pt": "POR",
         "en": "ENG",
         "es": "SPA",
         }
-        languageCode = editus_languages[record["language"]]
+        languageCode = scielo_languages[record["language"]]
         language = {
             "workId": work_id,
             "languageCode": languageCode,
@@ -269,7 +254,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
             "mainLanguage": "true"
         }
         logging.info(language)
-        # self.thoth.create_language(language)
+        self.thoth.create_language(language)
 
     def create_subjects(self, record, work_id):
         """Creates all subjects associated with the current work
@@ -280,8 +265,6 @@ class EDITUSLoader(EditusBookLoaderFunctions):
         """
         BISAC_subject_code = record["bisac_code"][0][0][1]
         keyword_subject_codes = record["primary_descriptor"].split( "; " )
-        logging.info(keyword_subject_codes)
-        # logging.info(subject_code)
         def create_BISAC_subject():
             subject = {
                 "workId": work_id,
@@ -289,8 +272,8 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 "subjectCode": BISAC_subject_code,
                 "subjectOrdinal": 1
             }
-            # self.thoth.create_subject(subject)
             logging.info(subject)
+            self.thoth.create_subject(subject)
         create_BISAC_subject()
 
         def create_keyword_subjects():
@@ -303,11 +286,11 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                     "subjectCode": keyword,
                     "subjectOrdinal": subject_ordinal
                 }
-                # self.thoth.create_subject(subject)
+                self.thoth.create_subject(subject)
                 logging.info(subject)
         create_keyword_subjects()
 
-    def create_series(self, record, work_id):
+    def create_series(self, record, work_id, imprint_id):
         """Creates series associated with the current work
 
         record: current JSON record
@@ -334,6 +317,7 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 "issnNetworkUrl": None,
                 "seriesNote": None,
             }
+            logging.info(series)
         elif collection_title:
             series = {
                 "workId": work_id,
@@ -348,18 +332,19 @@ class EDITUSLoader(EditusBookLoaderFunctions):
                 "issnNetwork": None,
                 "issnNetworkUrl": None,
                 "seriesNote": None,
+                "imprintId": imprint_id
             }
-            # if series_name not in self.all_series:
-                # series_id = self.thoth.create_series(series)
-                # self.all_series[series_name] = series_id
-            # else:
-                # series_id = self.all_series[series_name]
-            if issue_ordinal:
-                issue = {
-                    # "seriesId": series_id,
-                    "workId": work_id,
-                    "issueOrdinal": int(issue_ordinal)
-                }
-                logging.info(issue)
-                # self.thoth.create_issue(issue)
             logging.info(series)
+        if series:
+            if series["seriesName"] not in self.all_series:
+                series_id = self.thoth.create_series(series)
+                self.all_series[series_name] = series_id
+            else:
+                series_id = self.all_series[series_name]
+            issue = {
+                "seriesId": series_id,
+                "workId": work_id,
+                "issueOrdinal": int(issue_ordinal) if issue_ordinal else None
+                }
+            logging.info(issue)
+            self.thoth.create_issue(issue)
