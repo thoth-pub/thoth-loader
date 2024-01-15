@@ -2,6 +2,7 @@
 """Load SciELO metadata into Thoth"""
 
 import logging
+import re
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
@@ -29,14 +30,14 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            self.create_pdf_publication(record, work_id)
-            self.create_epub_publication(record, work_id)
-            self.create_print_publication(record, work_id)
+            # self.create_pdf_publication(record, work_id)
+            # self.create_epub_publication(record, work_id)
+            # self.create_print_publication(record, work_id)
             self.create_contributors(record, work_id)
-            self.create_languages(record, work_id)
-            self.create_subjects(record, work_id)
-            self.create_series(record, work_id)
-            # ignore series data: SciELO series don't include ISSN, which is a required field in Thoth.
+            # self.create_languages(record, work_id)
+            # self.create_subjects(record, work_id)
+            # self.create_series(record, work_id)
+            # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
             # self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
@@ -199,6 +200,8 @@ class SciELOLoader(BookLoader):
         "organizer": "EDITOR",
         "translator": "TRANSLATOR",
         }
+        orcid_regex = re.compile(r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
+        logging.info(orcid_regex)
         contribution_ordinal = 0
         for creator in record["creators"]:
             full_name_inverted = creator[1][1].split(',')
@@ -206,6 +209,17 @@ class SciELOLoader(BookLoader):
             surname = full_name_inverted[0]
             fullname = f"{name} {surname}"
             contribution_type = scielo_contribution_types[creator[0][1]]
+            # logging.info(creator[2][1])
+            profile_link = creator[2][1]
+            # if orcid_regex.match(profile_link):
+            #     logging.info(profile_link + "is an ORCID")
+
+            # if contributor has an ORCID in link_resume field, put it in "orcid"
+
+            # else, put it in "website"
+
+
+            # link_resume is in creator[2][1]
             is_main = "true" if contribution_type in ["AUTHOR", "EDITOR"] else "false"
             contribution_ordinal += 1
             contributor = {
@@ -232,8 +246,8 @@ class SciELOLoader(BookLoader):
                 "lastName": surname,
                 "fullName": fullname,
             }
-            logging.info(contribution)
-            self.thoth.create_contribution(contribution)
+            # logging.info(contribution)
+            # self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
         """Creates language associated with the current work
