@@ -29,12 +29,12 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            self.create_pdf_publication(record, work_id)
-            self.create_epub_publication(record, work_id)
-            self.create_print_publication(record, work_id)
+            # self.create_pdf_publication(record, work_id)
+            # self.create_epub_publication(record, work_id)
+            # self.create_print_publication(record, work_id)
             self.create_contributors(record, work_id)
-            self.create_languages(record, work_id)
-            self.create_subjects(record, work_id)
+            # self.create_languages(record, work_id)
+            # self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
             # self.create_series(record, work_id)
             # self.create_series(record, self.imprint_id, work_id)
@@ -223,11 +223,12 @@ class SciELOLoader(BookLoader):
                 "orcid": orcid_id,
                 "website": website,
             }
-            if fullname not in self.all_contributors:
+            fullname_plus_space = " " + fullname
+            if fullname_plus_space not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
-                contributor_id = self.all_contributors[fullname]
+                contributor_id = self.thoth.update_contributor(contributor)
 
             contribution = {
                 "workId": work_id,

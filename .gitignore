@@ -1,5 +1,6 @@
 .env
 data
+edited_untracked_files
 docker-compose.yml
 __pycache__
 .DS_Store
