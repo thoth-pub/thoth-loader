@@ -2,7 +2,6 @@
 """Load SciELO metadata into Thoth"""
 
 import logging
-import re
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
@@ -11,7 +10,7 @@ class SciELOLoader(BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
     import_format = "JSON"
     single_imprint = True
-    # TODO: when ingesting other publishers, change name.
+    # TODO: when ingesting from other imprints (e.g. EDUFBA), change name.
     publisher_name = "EDITUS"
     publisher_shortname = None
     # TODO: when ingesting other publishers, change URL.
@@ -30,14 +29,14 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_pdf_publication(record, work_id)
-            # self.create_epub_publication(record, work_id)
-            # self.create_print_publication(record, work_id)
+            self.create_pdf_publication(record, work_id)
+            self.create_epub_publication(record, work_id)
+            self.create_print_publication(record, work_id)
             self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
-            # self.create_series(record, work_id)
+            self.create_languages(record, work_id)
+            self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
+            # self.create_series(record, work_id)
             # self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
@@ -49,21 +48,18 @@ class SciELOLoader(BookLoader):
         """
         title = self.split_title(record["title"])
         publication_date = self.sanitise_date(record["year"])
-
-        scielo_work_types = {
-        "Monograph": "MONOGRAPH",
-        "MONOGRAPH": "MONOGRAPH",
-        "Book": "MONOGRAPH",
-        "Edited book": "EDITED_BOOK",
-        "Edited Book": "EDITED_BOOK",
-        "EDITED_BOOK": "EDITED_BOOK",
-        "Journal Issue": "JOURNAL_ISSUE",
-        "Journal": "JOURNAL_ISSUE"
-        }
+        work_type = None
+        # create workType based on creator role
+        for creator in record["creators"]:
+            # if any creator is an organizer, workType is EDITED_BOOK
+            if creator[0][1] == "organizer":
+                work_type = "EDITED_BOOK"
+                break
+            else:
+                work_type = "MONOGRAPH"
 
         work = {
-            # TODO: workType is "Edited Book" for books with one or more editors, otherwise Monograph. See old Editus loader.
-            "workType": scielo_work_types[record["TYPE"]],
+            "workType": work_type,
             "workStatus": "ACTIVE",
             "fullTitle": title["fullTitle"],
             "title": title["title"],
@@ -96,7 +92,6 @@ class SciELOLoader(BookLoader):
             "lastPage": None,
             "pageInterval": None,
         }
-        logging.info(title["title"])
         return work
 
     def create_pdf_publication(self, record, work_id):
@@ -121,7 +116,7 @@ class SciELOLoader(BookLoader):
             "weightOz": None,
         }
         publication_id = self.thoth.create_publication(publication)
-        logging.info('publicationId: %s' % publication_id)
+        # logging.info('publicationId: %s' % publication_id)
         def create_pdf_location():
             location = {
                 "publicationId": publication_id,
@@ -131,7 +126,7 @@ class SciELOLoader(BookLoader):
                 "canonical": "true",
             }
             self.thoth.create_location(location)
-            logging.info(location)
+            # logging.info(location)
         create_pdf_location()
 
     def create_epub_publication(self, record, work_id):
@@ -141,7 +136,8 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-
+        # TODO: .sanitise_isbn will fail in production without update to isbn_hyphenate library to include latest ISBN ranges
+        # directions on updating isbn_hyphenate prefix list: https://github.com/TorKlingberg/isbn_hyphenate
         publication = {
             "workId": work_id,
             "publicationType": "EPUB",
@@ -155,7 +151,6 @@ class SciELOLoader(BookLoader):
             "weightG": None,
             "weightOz": None,
         }
-        logging.info(record["eisbn"])
         publication_id = self.thoth.create_publication(publication)
 
         def create_epub_location():
@@ -167,7 +162,7 @@ class SciELOLoader(BookLoader):
                 "canonical": "true",
             }
             self.thoth.create_location(location)
-            logging.info(location)
+            # logging.info(location)
         create_epub_location()
 
     def create_print_publication(self, record, work_id):
@@ -177,7 +172,7 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-
+        # TODO: see note above on .sanitise_isbn
         publication = {
             "workId": work_id,
             "publicationType": "PAPERBACK",
@@ -200,8 +195,7 @@ class SciELOLoader(BookLoader):
         "organizer": "EDITOR",
         "translator": "TRANSLATOR",
         }
-        orcid_regex = re.compile(r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
-        logging.info(orcid_regex)
+
         contribution_ordinal = 0
         for creator in record["creators"]:
             full_name_inverted = creator[1][1].split(',')
@@ -209,25 +203,25 @@ class SciELOLoader(BookLoader):
             surname = full_name_inverted[0]
             fullname = f"{name} {surname}"
             contribution_type = scielo_contribution_types[creator[0][1]]
-            # logging.info(creator[2][1])
             profile_link = creator[2][1]
-            # if orcid_regex.match(profile_link):
-            #     logging.info(profile_link + "is an ORCID")
-
-            # if contributor has an ORCID in link_resume field, put it in "orcid"
-
-            # else, put it in "website"
-
-
-            # link_resume is in creator[2][1]
+            orcid_id = None
+            website = None
+            if profile_link:
+                orcid = self.orcid_regex.search(profile_link)
+                if orcid:
+                    orcid_id = profile_link
+                    website = None
+                else:
+                    orcid_id = None
+                    website = profile_link
             is_main = "true" if contribution_type in ["AUTHOR", "EDITOR"] else "false"
             contribution_ordinal += 1
             contributor = {
                 "firstName": name,
                 "lastName": surname,
                 "fullName": fullname,
-                "orcid": None,
-                "website": creator[2][1]
+                "orcid": orcid_id,
+                "website": website,
             }
             if fullname not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
@@ -246,8 +240,8 @@ class SciELOLoader(BookLoader):
                 "lastName": surname,
                 "fullName": fullname,
             }
-            # logging.info(contribution)
-            # self.thoth.create_contribution(contribution)
+            # logging.info(contributor)
+            self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
         """Creates language associated with the current work
@@ -268,7 +262,7 @@ class SciELOLoader(BookLoader):
             "languageRelation": "ORIGINAL",
             "mainLanguage": "true"
         }
-        logging.info(language)
+        # logging.info(language)
         self.thoth.create_language(language)
 
     def create_subjects(self, record, work_id):
@@ -287,7 +281,7 @@ class SciELOLoader(BookLoader):
                 "subjectCode": BISAC_subject_code,
                 "subjectOrdinal": 1
             }
-            logging.info(subject)
+            # logging.info(subject)
             self.thoth.create_subject(subject)
         create_BISAC_subject()
 
@@ -302,7 +296,7 @@ class SciELOLoader(BookLoader):
                     "subjectOrdinal": subject_ordinal
                 }
                 self.thoth.create_subject(subject)
-                logging.info(subject)
+                # logging.info(subject)
         create_keyword_subjects()
 
     # TODO: problem with create_series: SciELO series don't include ISSN, which is a required field in Thoth.
