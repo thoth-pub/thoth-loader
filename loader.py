@@ -6,32 +6,32 @@ Call custom, business specific, workflows to ingest metadata into Thoth.
 
 import argparse
 import logging
-# from obploader import OBPBookLoader
-# from obpchapterloader import ObpChapterLoader
-# from obpchapterabstractloader import ObpChapterAbstractLoader
-#from punctumloader import PunctumBookLoader
-# from punctumchapterloader import PunctumChapterLoader
-# from africanmindsloader import AfricanMindsBookLoader
-#from whploader import WHPLoader
-#from whpchapterloader import WHPChapterLoader
-#from uwploader import UWPLoader
-#from lseloader import LSELoader
+from obploader import OBPBookLoader
+from obpchapterloader import ObpChapterLoader
+from obpchapterabstractloader import ObpChapterAbstractLoader
+from punctumloader import PunctumBookLoader
+from punctumchapterloader import PunctumChapterLoader
+from africanmindsloader import AfricanMindsBookLoader
+from whploader import WHPLoader
+from whpchapterloader import WHPChapterLoader
+from uwploader import UWPLoader
+from lseloader import LSELoader
 from scieloloader import SciELOLoader
-#from ubiquityloader import UbiquityPressesLoader
+from ubiquityloader import UbiquityPressesLoader
 
 LOADERS = {
-    # "OBP": OBPBookLoader,
-    # "OBP-chapters": ObpChapterLoader,
-    # "OBP-chapter-abstracts": ObpChapterAbstractLoader,
-    # "punctum": PunctumBookLoader,
-    # "punctum-chapters": PunctumChapterLoader,
-    # "AM": AfricanMindsBookLoader,
-    # "WHP": WHPLoader,
-    # "WHP-chapters": WHPChapterLoader,
-    # "UWP": UWPLoader,
-    # "LSE": LSELoader,
+    "OBP": OBPBookLoader,
+    "OBP-chapters": ObpChapterLoader,
+    "OBP-chapter-abstracts": ObpChapterAbstractLoader,
+    "punctum": PunctumBookLoader,
+    "punctum-chapters": PunctumChapterLoader,
+    "AM": AfricanMindsBookLoader,
+    "WHP": WHPLoader,
+    "WHP-chapters": WHPChapterLoader,
+    "UWP": UWPLoader,
+    "LSE": LSELoader,
     "SciELO": SciELOLoader,
-    # "Ubiquity-presses": UbiquityPressesLoader,
+    "Ubiquity-presses": UbiquityPressesLoader,
 }
 
 ARGS = [
