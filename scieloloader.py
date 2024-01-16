@@ -32,7 +32,8 @@ class SciELOLoader(BookLoader):
             # self.create_pdf_publication(record, work_id)
             # self.create_epub_publication(record, work_id)
             # self.create_print_publication(record, work_id)
-            self.create_contributors(record, work_id)
+            # can't update contributors without update_contributor function in thoth-client
+            # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
@@ -228,6 +229,7 @@ class SciELOLoader(BookLoader):
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
+                # doesn't work because update_contributor function doesn't yet exist in thoth-client
                 contributor_id = self.thoth.update_contributor(contributor)
 
             contribution = {
