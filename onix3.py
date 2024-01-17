@@ -2,7 +2,7 @@
 import re
 import logging
 from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote, \
-TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation
+TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, CopyrightOwner
 from bookloader import BookLoader
 
 
@@ -62,6 +62,13 @@ class Onix3Record:
         else:
             return "MONOGRAPH"
 
+    def short_abstract(self):
+        try:
+            return [text.text[0].content[0] for text in self._product.collateral_detail.text_content
+                    if text.text_type.value.value == "02"][0]
+        except IndexError:
+            return None
+
     def long_abstract(self):
         try:
             return [text.text[0].content[0] for text in self._product.collateral_detail.text_content
@@ -96,10 +103,30 @@ class Onix3Record:
             return None
 
     def publication_place(self):
-        return self._product.publishing_detail.city_of_publication[0].value
+        city = self._product.publishing_detail.city_of_publication
+        country = self._product.publishing_detail.country_of_publication
+        try:
+            return "{}, {}".format(city[0].value, country.value.value)
+        except IndexError:
+            try:
+                return country.value.value
+            except AttributeError:
+                return None
+        except AttributeError:
+            return city[0].value
 
     def publication_date(self):
         return BookLoader.sanitise_date(self._product.publishing_detail.publishing_date[0].date.value)
+
+    def copyright_holder(self):
+        try:
+            return [name.value
+                    for statement in self._product.publishing_detail.copyright_statement
+                    for owner in statement.copyright_year_or_copyright_owner
+                    if type(owner) is CopyrightOwner
+                    for name in owner.person_name_or_corporate_name][0]
+        except IndexError:
+            return None
 
     def work_status(self):
         return self._product.publishing_detail.publishing_status.value.value
@@ -112,7 +139,7 @@ class Onix3Record:
 
     def page_count(self):
         page_count = [extent.extent_value.value for extent in self._product.descriptive_detail.extent
-                      if extent.extent_type.value.value in ["00", "11"]]
+                      if extent.extent_type.value.value in ["00", "06", "07", "08", "11"]]
         try:
             return int(page_count[0])
         except IndexError:
@@ -289,6 +316,15 @@ class Onix3Record:
             return [content
                     for biographical_note in contributor.choice_1
                     for content in getattr(biographical_note, 'content', [])][0]
+        except IndexError:
+            return None
+
+    @staticmethod
+    def get_website(contributor: Contributor):
+        try:
+            return [link.value
+                    for website in contributor.choice_1
+                    for link in getattr(website, 'website_link', [])][0]
         except IndexError:
             return None
 

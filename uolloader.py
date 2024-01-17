@@ -69,6 +69,10 @@ class UOLLoader(BookLoader):
         if long_abstract is not None:
             long_abstract = long_abstract.replace("\r", "")
 
+        short_abstract = record.short_abstract()
+        if short_abstract is not None:
+            short_abstract = short_abstract.replace("\r", "")
+
         work = {
             "workType": record.work_type(),
             "workStatus": self.work_statuses[record.work_status()],
@@ -88,11 +92,11 @@ class UOLLoader(BookLoader):
             "audioCount": None,
             "videoCount": None,
             "license": record.license(),
-            "copyrightHolder": None,
+            "copyrightHolder": record.copyright_holder(),
             "landingPage": landing_page,
             "lccn": None,
             "oclc": None,
-            "shortAbstract": None,
+            "shortAbstract": short_abstract,
             "longAbstract": long_abstract,
             "generalNote": None,
             "bibliographyNote": None,
@@ -180,7 +184,7 @@ class UOLLoader(BookLoader):
                     "lastName": family_name,
                     "fullName": full_name,
                     "orcid": orcid,
-                    "website": None,
+                    "website": Onix3Record.get_website(contributor_record),
                 }
                 logging.info(contributor)
                 contributor_id = '123456'
