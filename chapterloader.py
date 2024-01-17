@@ -40,18 +40,11 @@ class ChapterLoader:
         r'0000-000(1-[5-9]|2-[0-9]|3-[0-4])\d{3}-\d{3}[\dX]')
 
     def __init__(self, metadata_file, client_url, email, password):
-        # get metadata file from arguments
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
-        # login to (local) thoth using provided credentials
         self.thoth.login(email, password)
-        # prepare_file does """Read CSV, convert empties to None and rename duplicate columns"""
-        # so we shouldn't need this for the Editus chapter loader, because it's JSON
         self.data = self.prepare_file()
         logging.info(self.publisher_name)
-        # can't see what's inside here because it's a Thoth operation, i.e. I'd need to go into Thoth.
-        # but it also doesn't matter because in obpchapterloader, they just say that publisher_name is
-        # "Open Book Publishers"
         publishers = self.thoth.publishers(search=self.publisher_name)
         try:
             self.publisher_id = publishers[0].publisherId
