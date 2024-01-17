@@ -6,13 +6,13 @@ __pycache__
 .DS_Store
 Dockerfile
 RangeMessage.xml
-africanmindsloader.py
-chapterloader.py
+# africanmindsloader.py
+# chapterloader.py
 edituschapterloader.py
 editusloader_old.py
 lseloader.py
-obpchapterloader.py
+# obpchapterloader.py
 onix3.py
 ubiquityloader.py
-uwploader.py
+# uwploader.py
 whpchapterloader.py
