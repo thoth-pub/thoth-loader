@@ -35,7 +35,7 @@ class SciELOLoader(BookLoader):
             self.create_contributors(record, work_id)
             self.create_languages(record, work_id)
             self.create_subjects(record, work_id)
-            # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
+            # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
             # self.create_series(record, work_id)
             # self.create_series(record, self.imprint_id, work_id)
 
