@@ -29,13 +29,12 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_pdf_publication(record, work_id)
-            # self.create_epub_publication(record, work_id)
-            # self.create_print_publication(record, work_id)
-            # can't update contributors without update_contributor function in thoth-client
-            # self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
+            self.create_pdf_publication(record, work_id)
+            self.create_epub_publication(record, work_id)
+            self.create_print_publication(record, work_id)
+            self.create_contributors(record, work_id)
+            self.create_languages(record, work_id)
+            self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth.
             # self.create_series(record, work_id)
             # self.create_series(record, self.imprint_id, work_id)
@@ -117,17 +116,15 @@ class SciELOLoader(BookLoader):
             "weightOz": None,
         }
         publication_id = self.thoth.create_publication(publication)
-        # logging.info('publicationId: %s' % publication_id)
         def create_pdf_location():
             location = {
                 "publicationId": publication_id,
                 "landingPage": record["books_url"],
                 "fullTextUrl": record["pdf_url"],
-                "locationPlatform": "OTHER", #TODO: Waiting for Javi to add SciELO to the list of location platforms
+                "locationPlatform": "OTHER", #TODO: Waiting for SciELO to be added to the list of location platforms
                 "canonical": "true",
             }
             self.thoth.create_location(location)
-            # logging.info(location)
         create_pdf_location()
 
     def create_epub_publication(self, record, work_id):
@@ -159,11 +156,10 @@ class SciELOLoader(BookLoader):
                 "publicationId": publication_id,
                 "landingPage": record["books_url"],
                 "fullTextUrl": record["epub_url"],
-                "locationPlatform": "OTHER", #TODO: Waiting for Javi to add SciELO to the list of location platforms
+                "locationPlatform": "OTHER", #TODO: Waiting for SciELO to be added to the list of location platforms
                 "canonical": "true",
             }
             self.thoth.create_location(location)
-            # logging.info(location)
         create_epub_location()
 
     def create_print_publication(self, record, work_id):
@@ -224,13 +220,22 @@ class SciELOLoader(BookLoader):
                 "orcid": orcid_id,
                 "website": website,
             }
-            fullname_plus_space = " " + fullname
-            if fullname_plus_space not in self.all_contributors:
+
+            if fullname not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
-                # doesn't work because update_contributor function doesn't yet exist in thoth-client
-                contributor_id = self.thoth.update_contributor(contributor)
+                contributor_id = self.all_contributors[fullname]
+
+                contributor = {
+                    "firstName": name,
+                    "lastName": surname,
+                    "fullName": fullname,
+                    "orcid": orcid_id,
+                    "website": website,
+                    "contributorId": contributor_id,
+                }
+                self.thoth.update_contributor(contributor)
 
             contribution = {
                 "workId": work_id,
@@ -243,7 +248,6 @@ class SciELOLoader(BookLoader):
                 "lastName": surname,
                 "fullName": fullname,
             }
-            # logging.info(contributor)
             self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
@@ -265,7 +269,6 @@ class SciELOLoader(BookLoader):
             "languageRelation": "ORIGINAL",
             "mainLanguage": "true"
         }
-        # logging.info(language)
         self.thoth.create_language(language)
 
     def create_subjects(self, record, work_id):
@@ -284,7 +287,6 @@ class SciELOLoader(BookLoader):
                 "subjectCode": BISAC_subject_code,
                 "subjectOrdinal": 1
             }
-            # logging.info(subject)
             self.thoth.create_subject(subject)
         create_BISAC_subject()
 
@@ -299,7 +301,6 @@ class SciELOLoader(BookLoader):
                     "subjectOrdinal": subject_ordinal
                 }
                 self.thoth.create_subject(subject)
-                # logging.info(subject)
         create_keyword_subjects()
 
     # TODO: problem with create_series: SciELO series don't include ISSN, which is a required field in Thoth.
