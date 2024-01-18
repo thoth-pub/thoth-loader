@@ -43,8 +43,8 @@ class ChapterLoader:
         self.metadata_file = metadata_file
         self.thoth = ThothClient(client_url)
         self.thoth.login(email, password)
+
         self.data = self.prepare_file()
-        logging.info(self.publisher_name)
         publishers = self.thoth.publishers(search=self.publisher_name)
         try:
             self.publisher_id = publishers[0].publisherId
