@@ -248,9 +248,25 @@ class Onix3Record:
             return [website_link.value
                     for publisher in self._product.publishing_detail.imprint_or_publisher
                     for website in getattr(publisher, 'website', [])
-                    for website_link in website.website_link][0]
+                    for website_link in website.website_link
+                    if website.website_role.value.value == "02"][0]
         except IndexError:
             return None
+
+    def full_text_urls(self):
+        urls = [website_link.value
+                for publisher in self._product.publishing_detail.imprint_or_publisher
+                for website in getattr(publisher, 'website', [])
+                for website_link in website.website_link
+                if website.website_role.value.value == "29"]
+        # May also be provided within SupplyDetail
+        urls.extend([website_link.value
+                     for supply in self._product.product_supply
+                     for detail in supply.supply_detail
+                     for website in getattr(detail.supplier, 'website', [])
+                     for website_link in website.website_link])
+        # Deduplicate
+        return list(set(urls))
 
     @staticmethod
     def get_key_names(contributor: Contributor):

@@ -56,11 +56,14 @@ class UOLLoader(BookLoader):
 
         try:
             doi = record.doi()
-            # resolve DOI to obtain landing page
-            landing_page = requests.get(doi).url
         except IndexError:
             doi = None
-            landing_page = None
+
+        landing_page = record.available_content_url()
+        if landing_page is None and doi is not None:
+            # Backstop: resolve DOI to obtain landing page
+            # (this takes some time and is not always accurate)
+            landing_page = requests.get(doi).url
 
         edition = record.edition_number()
         if edition is None:
@@ -126,6 +129,17 @@ class UOLLoader(BookLoader):
             # self.thoth.create_price(price)
             logging.info(price)
 
+        def create_location():
+            location = {
+                "publicationId": publication_id,
+                "landingPage": None,
+                "fullTextUrl": url,
+                "locationPlatform": "OTHER",
+                "canonical": canonical,
+            }
+            # self.thoth.create_location(location)
+            logging.info(location)
+
         publication = {
             "workId": work_id,
             "publicationType": self.publication_types[record.product_type()],
@@ -156,6 +170,10 @@ class UOLLoader(BookLoader):
         # (representing different suppliers): remove duplicates
         for currency_code, unit_price in list(set(record.prices())):
             create_price()
+
+        for index, url in enumerate(record.full_text_urls()):
+            canonical = "true" if index == 0 else "false"
+            create_location()
 
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work
