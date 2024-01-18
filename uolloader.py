@@ -43,6 +43,7 @@ class UOLLoader(BookLoader):
             self.create_contributors(canonical_record, work_id)
             self.create_languages(canonical_record, work_id, default_language)
             self.create_subjects(canonical_record, work_id)
+            self.create_series(canonical_record, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -289,3 +290,55 @@ class UOLLoader(BookLoader):
         process_codes(record.bic_codes(), "BIC")
         process_codes(record.keywords_from_text(), "KEYWORD")
         process_codes(record.custom_codes(), "CUSTOM")
+
+    def create_series(self, record, work_id, imprint_id):
+        """Creates all series associated with the current work
+
+        record: current onix record
+
+        work_id: previously obtained ID of the current work
+
+        imprint_id: previously obtained ID of this work's imprint
+        """
+        for series_record in record.serieses():
+            series_name = Onix3Record.get_series_name(series_record)
+            issue_ordinal = Onix3Record.get_issue_ordinal(series_record)
+            if not series_name or not issue_ordinal:
+                # Can't add an issue if series name or issue ordinal are unknown
+                continue
+            # TODO for first import there will be no existing UoL series;
+            # if updating for recurring import, initialise self.all_series first
+            if series_name not in self.all_series:
+                # Only one ISSN per series is permitted in ONIX
+                # Use for both print and digital (as Thoth requires both)
+                issn = None
+                try:
+                    issn = BookLoader.sanitise_issn(Onix3Record.get_issn(series_record))
+                except ValueError as e:
+                    logging.error(f"{e} ({work_id})")
+                if not issn:
+                    # Can't add series without ISSN, so can't add issue
+                    continue
+                series = {
+                    "seriesType": "BOOK_SERIES",
+                    "seriesName": series_name,
+                    "issnDigital": issn,
+                    "issnPrint": issn,
+                    "seriesUrl": None,
+                    "seriesDescription": None,
+                    "seriesCfpUrl": None,
+                    "imprintId": imprint_id
+                }
+                logging.info(series)
+                # series_id = self.thoth.create_series(series)
+                series_id = "1234"
+                self.all_series[series_name] = series_id
+            else:
+                series_id = self.all_series[series_name]
+            issue = {
+                "seriesId": series_id,
+                "workId": work_id,
+                "issueOrdinal": int(issue_ordinal)
+            }
+            logging.info(issue)
+            # self.thoth.create_issue(issue)

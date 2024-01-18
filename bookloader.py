@@ -294,6 +294,20 @@ class BookLoader:
             raise
 
     @staticmethod
+    def sanitise_issn(issn):
+        """Return a hyphenated ISSN"""
+        if not issn:
+            return None
+        if "-" in str(issn):
+            hyphenated_issn = str(issn)
+        else:
+            hyphenated_issn = str(issn)[:4] + '-' + str(issn)[4:]
+        if not len(hyphenated_issn) == 9:
+            raise ValueError("ISSN incorrectly formatted: %s" % issn)
+        else:
+            return hyphenated_issn
+
+    @staticmethod
     def sanitise_url(url):
         """Return a URL beginning https://"""
         if not url:

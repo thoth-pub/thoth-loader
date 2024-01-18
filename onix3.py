@@ -2,7 +2,7 @@
 import re
 import logging
 from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote, \
-TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, CopyrightOwner
+TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, CopyrightOwner, Collection, TitleText, TitleElement
 from bookloader import BookLoader
 
 
@@ -14,25 +14,7 @@ class Onix3Record:
 
     def title(self):
         title_element = self._product.descriptive_detail.title_detail[0].title_element[0]
-        prefix = None
-        title = None
-        subtitle = None
-        for title_part in title_element.choice:
-            if type(title_part) is TitlePrefix:
-                prefix = title_part.value
-            if type(title_part) is TitleWithoutPrefix:
-                title = title_part.value
-            if type(title_part) is Subtitle:
-                subtitle = title_part.value
-        if title is None:
-            # title may be contained in another element type, e.g. <TitleText>
-            try:
-                title = title_element.choice[0].value
-                subtitle = title_element.choice[1].value
-            except (ValueError, AttributeError, IndexError):
-                title = title_element.choice[0].value
-        if prefix is not None:
-            title = ' '.join([prefix, title])
+        (title, subtitle) = self.get_title_and_subtitle(title_element)
         return BookLoader.sanitise_title(title, subtitle)
 
     def doi(self):
@@ -170,6 +152,10 @@ class Onix3Record:
     def contributors(self):
         return [c for c in self._product.descriptive_detail.contributor_or_contributor_statement_or_no_contributor
                 if type(c) is Contributor]
+
+    def serieses(self):
+        return [c for c in self._product.descriptive_detail.collection_or_no_collection
+                if type(c) is Collection]
 
     def language_code(self):
         return self._product.descriptive_detail.language[0].language_code.value.value.upper()
@@ -338,3 +324,60 @@ class Onix3Record:
             return None
         orcid_hyphenated = '-'.join(orcid_digits[i:i+4] for i in range(0, len(orcid_digits), 4))
         return BookLoader.sanitise_orcid(orcid_hyphenated)
+
+    @staticmethod
+    def get_series_name(series: Collection):
+        title_element = series.title_detail[0].title_element[0]
+        (title, subtitle) = Onix3Record.get_title_and_subtitle(title_element)
+        if subtitle is not None:
+            return ': '.join([title, subtitle])
+        else:
+            return title
+
+    @staticmethod
+    def get_issn(series: Collection):
+        try:
+            return [id.idvalue.value
+                    for id in getattr(series, 'collection_identifier', [])][0]
+        except IndexError:
+            return None
+
+    @staticmethod
+    def get_issue_ordinal(series: Collection):
+        try:
+            return [seq.collection_sequence_number.value
+                    for seq in getattr(series, 'collection_sequence', [])][0]
+        except IndexError:
+            return None
+
+    @staticmethod
+    def get_title_and_subtitle(element: TitleElement):
+        prefix = None
+        title_without_prefix = None
+        title_text = None
+        subtitle = None
+
+        for title_part in element.choice:
+            if type(title_part) is TitlePrefix:
+                prefix = title_part.value
+            if type(title_part) is TitleWithoutPrefix:
+                title_without_prefix = title_part.value
+            if type(title_part) is TitleText:
+                title_text = title_part.value
+            if type(title_part) is Subtitle:
+                subtitle = title_part.value
+
+        if title_text is not None:
+            # Assume this is the canonical title
+            title = title_text
+        elif title_without_prefix is not None:
+            # Likewise
+            title = title_without_prefix
+        else:
+            # Pick first element and hope for the best
+            title = element.choice[0].value
+
+        if prefix is not None:
+            title = ' '.join([prefix, title])
+
+        return (title, subtitle)
