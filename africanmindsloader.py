@@ -121,7 +121,7 @@ class AfricanMindsBookLoader(BookLoader):
 
         row: current row number
 
-        work_id: previously obtained ID of the current work .
+        work_id: previously obtained ID of the current work
         """
         # [(type, first_name, last_name, institution, orcid)]
         # create list of all instances of "(type, [...])" without brackets
