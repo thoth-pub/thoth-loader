@@ -3,7 +3,7 @@ FROM python:3.10
 WORKDIR /usr/src/app
 
 COPY ./requirements.txt ./
-COPY ./RangeMessage.xml ./
+COPY ./data/RangeMessage.xml ./
 RUN pip install --no-cache-dir -r requirements.txt && \
     rm requirements.txt
 

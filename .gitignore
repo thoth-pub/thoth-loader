@@ -1,18 +1,3 @@
 .env
 data
-edited_untracked_files
-docker-compose.yml
 __pycache__
-.DS_Store
-Dockerfile
-RangeMessage.xml
-# africanmindsloader.py
-# chapterloader.py
-edituschapterloader.py
-editusloader_old.py
-lseloader.py
-# obpchapterloader.py
-onix3.py
-ubiquityloader.py
-# uwploader.py
-whpchapterloader.py
