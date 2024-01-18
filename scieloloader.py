@@ -29,9 +29,7 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            self.create_pdf_publication(record, work_id)
-            self.create_epub_publication(record, work_id)
-            self.create_print_publication(record, work_id)
+            self.create_publications(record, work_id)
             self.create_contributors(record, work_id)
             self.create_languages(record, work_id)
             self.create_subjects(record, work_id)
@@ -46,6 +44,14 @@ class SciELOLoader(BookLoader):
         """
         title = self.split_title(record["title"])
         publication_date = self.sanitise_date(record["year"])
+        if record["city"] and record["country"]:
+            publication_place = record["city"] + ", " + record["country"]
+        elif record["city"] and not record["country"]:
+            publication_place = record["city"]
+        elif not record["city"] and record["country"]:
+            publication_place = record["country"]
+        else:
+            publication_place = None
         work_type = None
         # create workType based on creator role
         for creator in record["creators"]:
@@ -67,7 +73,7 @@ class SciELOLoader(BookLoader):
             "imprintId": imprint_id,
             "doi": record["doi_number"],
             "publicationDate": publication_date,
-            "place": record["city"] + ", " + record["country"],
+            "place": publication_place,
             "pageCount": int(record["pages"]),
             "pageBreakdown": None,
             "imageCount": None,
@@ -92,96 +98,42 @@ class SciELOLoader(BookLoader):
         }
         return work
 
-    def create_pdf_publication(self, record, work_id):
-        """Creates PDF publication and location associated with the current work
+    def create_publications(self, record, work_id):
+        """Creates PDF, EPUB, and paperback publications associated with the current work
 
         record: current JSON record
 
         work_id: previously obtained ID of the current work
         """
-
-        publication = {
-            "workId": work_id,
-            "publicationType": "PDF",
-            "isbn": None,
-            "widthMm": None,
-            "widthIn": None,
-            "heightMm": None,
-            "heightIn": None,
-            "depthMm": None,
-            "depthIn": None,
-            "weightG": None,
-            "weightOz": None,
-        }
-        publication_id = self.thoth.create_publication(publication)
-        def create_pdf_location():
+        books_url = record["books_url"]
+        pdf_url = record["pdf_url"]
+        epub_url = record["epub_url"]
+        eisbn = self.sanitise_isbn(record["eisbn"])
+        isbn = self.sanitise_isbn(record["isbn"])
+        publications = [["PDF", None, books_url, pdf_url], ["EPUB", eisbn, books_url, epub_url], ["PAPERBACK", isbn, books_url, None]]
+        for publication_type, isbn, landing_page, full_text in publications:
+            publication = {
+                "workId": work_id,
+                "publicationType": publication_type,
+                "isbn": isbn,
+                "widthMm": None,
+                "widthIn": None,
+                "heightMm": None,
+                "heightIn": None,
+                "depthMm": None,
+                "depthIn": None,
+                "weightG": None,
+                "weightOz": None,
+            }
+            publication_id = self.thoth.create_publication(publication)
             location = {
                 "publicationId": publication_id,
-                "landingPage": record["books_url"],
-                "fullTextUrl": record["pdf_url"],
-                "locationPlatform": "OTHER", #TODO: Waiting for SciELO to be added to the list of location platforms
+                "landingPage": landing_page,
+                "fullTextUrl": full_text,
+                "locationPlatform": "OTHER",
                 "canonical": "true",
             }
             self.thoth.create_location(location)
-        create_pdf_location()
-
-    def create_epub_publication(self, record, work_id):
-        """Creates EPUB publication and location associated with the current work
-
-        record: current JSON record
-
-        work_id: previously obtained ID of the current work
-        """
-        # TODO: .sanitise_isbn will fail in production without update to isbn_hyphenate library to include latest ISBN ranges
-        # directions on updating isbn_hyphenate prefix list: https://github.com/TorKlingberg/isbn_hyphenate
-        publication = {
-            "workId": work_id,
-            "publicationType": "EPUB",
-            "isbn": self.sanitise_isbn(record["eisbn"]),
-            "widthMm": None,
-            "widthIn": None,
-            "heightMm": None,
-            "heightIn": None,
-            "depthMm": None,
-            "depthIn": None,
-            "weightG": None,
-            "weightOz": None,
-        }
-        publication_id = self.thoth.create_publication(publication)
-
-        def create_epub_location():
-            location = {
-                "publicationId": publication_id,
-                "landingPage": record["books_url"],
-                "fullTextUrl": record["epub_url"],
-                "locationPlatform": "OTHER", #TODO: Waiting for SciELO to be added to the list of location platforms
-                "canonical": "true",
-            }
-            self.thoth.create_location(location)
-        create_epub_location()
-
-    def create_print_publication(self, record, work_id):
-        """Creates print publication associated with the current work
-
-        record: current JSON record
-
-        work_id: previously obtained ID of the current work
-        """
-        # TODO: see note above on .sanitise_isbn
-        publication = {
-            "workId": work_id,
-            "publicationType": "PAPERBACK",
-            "isbn": self.sanitise_isbn(record["isbn"]),
-            "widthMm": None,
-            "widthIn": None,
-            "heightMm": None,
-            "heightIn": None,
-            "depthMm": None,
-            "depthIn": None,
-            "weightG": None,
-            "weightOz": None,
-        }
-        self.thoth.create_publication(publication)
 
     def create_contributors(self, record, work_id):
 
