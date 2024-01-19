@@ -175,45 +175,39 @@ class SciELOLoader(BookLoader):
                 self.all_contributors[fullname] = contributor_id
             else:
                 contributor_id = self.all_contributors[fullname]
-                contributor_json = {
+                contributor_record = self.thoth.contributor(contributor_id, True)
+                contributor_json = json.loads(contributor_record)
+                # logging.info("Existing contributor record:")
+                # logging.info(contributor_record)
+                # logging.info("Existing contributor parsed JSON:")
+                # logging.info(contributor_json['data']['contributor']['firstName'])
+                json_first_name = contributor_json['data']['contributor']['firstName']
+                json_last_name = contributor_json['data']['contributor']['lastName']
+                json_full_name = contributor_json['data']['contributor']['fullName']
+                json_orcid = contributor_json['data']['contributor']['orcid']
+                json_contributor = {
+                    "firstName": json_first_name,
+                    "lastName": json_last_name,
+                    "fullName": json_full_name,
+                    "orcid": json_orcid,
                     "contributorId": contributor_id,
+                }
+
+                logging.info("JSON contributor dict:")
+                logging.info(json_contributor)
+
+                contributor = {
                     "firstName": name,
                     "lastName": surname,
                     "fullName": fullname,
                     "orcid": orcid_id,
                     "website": website,
+                    "contributorId": contributor_id,
                 }
-                # compare contributor info from JSON with existing contributor in Thoth
-                contributor_thoth = self.thoth.contributor(contributor_id).items()
-                logging.info("contributor_thoth:")
-                logging.info(contributor_thoth)
-                contributor_thoth_dict = dict(contributor_thoth)
-                existing_thoth_contributor = {
-                    'contributorId': contributor_thoth_dict['contributorId'],
-                    'firstName': contributor_thoth_dict['firstName'],
-                    'lastName': contributor_thoth_dict['lastName'],
-                    'fullName': contributor_thoth_dict['fullName'],
-                    'orcid': contributor_thoth_dict['orcid'],
-                    'website': contributor_thoth_dict['website'] if 'website' in contributor_thoth_dict else None,
-                }
-                if contributor_json != existing_thoth_contributor:
-                    print("The dictionaries are different.")
-                    self.thoth.update_contributor(contributor_json)
-                    logging.info("contributor dict from JSON:")
-                    logging.info(contributor_json)
-                    logging.info("contributor dict from Thoth:")
-                    logging.info(existing_thoth_contributor)
-                else:
-                    print("The dictionaries are the same.")
-                    logging.info("contributor dict from JSON:")
-                    logging.info(contributor_json)
-                    logging.info("contributor dict from Thoth:")
-                    logging.info(existing_thoth_contributor)
-
-                # logging.info("contributor dict from JSON:")
-                # logging.info(contributor)
+                logging.info("Existing contributor dict:")
+                logging.info(contributor)
                 # TODO: It'd be good to get the existing contributor from Thoth and only update if anything's changed
-                #
+                # self.thoth.update_contributor(contributor)
 
             contribution = {
                 "workId": work_id,
