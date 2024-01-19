@@ -177,8 +177,8 @@ class SciELOLoader(BookLoader):
                 contributor_id = self.all_contributors[fullname]
                 contributor_record = self.thoth.contributor(contributor_id, True)
                 contributor_json = json.loads(contributor_record)
-                # logging.info("Existing contributor record:")
-                # logging.info(contributor_record)
+                logging.info("Existing contributor record:")
+                logging.info(contributor_record)
                 # logging.info("Existing contributor parsed JSON:")
                 # logging.info(contributor_json['data']['contributor']['firstName'])
                 json_first_name = contributor_json['data']['contributor']['firstName']
@@ -193,8 +193,8 @@ class SciELOLoader(BookLoader):
                     "contributorId": contributor_id,
                 }
 
-                logging.info("JSON contributor dict:")
-                logging.info(json_contributor)
+                # logging.info("JSON contributor dict:")
+                # logging.info(json_contributor)
 
                 contributor = {
                     "firstName": name,
@@ -204,8 +204,8 @@ class SciELOLoader(BookLoader):
                     "website": website,
                     "contributorId": contributor_id,
                 }
-                logging.info("Existing contributor dict:")
-                logging.info(contributor)
+                # logging.info("Existing contributor dict:")
+                # logging.info(contributor)
                 # TODO: It'd be good to get the existing contributor from Thoth and only update if anything's changed
                 # self.thoth.update_contributor(contributor)
 
