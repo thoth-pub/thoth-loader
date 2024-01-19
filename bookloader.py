@@ -95,6 +95,11 @@ class BookLoader:
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
     }
+    language_codes = {
+        "pt": "POR",
+        "en": "ENG",
+        "es": "SPA",
+    }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
     orcid_regex = re.compile(

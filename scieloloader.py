@@ -31,8 +31,8 @@ class SciELOLoader(BookLoader):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
             # self.create_publications(record, work_id)
-            self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
+            # self.create_contributors(record, work_id)
+            self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
 
@@ -230,12 +230,8 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        scielo_languages = {
-        "pt": "POR",
-        "en": "ENG",
-        "es": "SPA",
-        }
-        languageCode = scielo_languages[record["language"]]
+
+        languageCode = self.language_codes[record["language"]]
         language = {
             "workId": work_id,
             "languageCode": languageCode,
