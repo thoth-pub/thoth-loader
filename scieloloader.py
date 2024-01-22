@@ -35,6 +35,7 @@ class SciELOLoader(BookLoader):
             # self.create_languages(record, work_id)
             self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
+            self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -175,7 +176,7 @@ class SciELOLoader(BookLoader):
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
-                # find existing contributor in Thoth.
+                # find existing contributor in Thoth
                 contributor_id = self.all_contributors[fullname]
                 contributor_record = self.thoth.contributor(contributor_id, True)
                 contributor_json_from_thoth = json.loads(contributor_record)
@@ -202,8 +203,6 @@ class SciELOLoader(BookLoader):
                     "contributorId": contributor_id,
                 }
                 if json_contributor != thoth_contributor:
-                    # combine the two dicts, replacing any None values with values from the other dict
-                    #  combined_contributor = {key: json_contributor[key] if json_contributor[key] is not None else thoth_contributor[key] for key in set(thoth_contributor) | set(json_contributor)}
                     combined_contributor = {}
                     # some contributors may have contributed to multiple books and be in the JSON multiple times
                     # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
@@ -214,8 +213,6 @@ class SciELOLoader(BookLoader):
                             combined_contributor[key] = thoth_contributor[key]
                     # logging.info(combined_contributor)
                     self.thoth.update_contributor(combined_contributor)
-                # else:
-                    # logging.info("Contributor has not changed. Skipping...")
 
             contribution = {
                 "workId": work_id,
