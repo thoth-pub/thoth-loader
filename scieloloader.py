@@ -31,9 +31,9 @@ class SciELOLoader(BookLoader):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
             # self.create_publications(record, work_id)
-            self.create_contributors(record, work_id)
+            # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
+            self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
 
     def get_work(self, record, imprint_id):
@@ -257,28 +257,21 @@ class SciELOLoader(BookLoader):
         """
         BISAC_subject_code = record["bisac_code"][0][0][1]
         keyword_subject_codes = record["primary_descriptor"].split( "; " )
-        def create_BISAC_subject():
+
+        def create_subject(subject_type, subject_code, subject_ordinal):
             subject = {
                 "workId": work_id,
-                "subjectType": "BISAC",
-                "subjectCode": BISAC_subject_code,
-                "subjectOrdinal": 1
+                "subjectType": subject_type,
+                "subjectCode": subject_code,
+                "subjectOrdinal": subject_ordinal
             }
             self.thoth.create_subject(subject)
-        create_BISAC_subject()
+            logging.info(subject)
 
-        def create_keyword_subjects():
-            subject_ordinal = 0
-            for keyword in keyword_subject_codes:
-                subject_ordinal += 1
-                subject = {
-                    "workId": work_id,
-                    "subjectType": "KEYWORD",
-                    "subjectCode": keyword,
-                    "subjectOrdinal": subject_ordinal
-                }
-                self.thoth.create_subject(subject)
-        create_keyword_subjects()
+        create_subject("BISAC", BISAC_subject_code, 1)
+
+        for subject_ordinal, keyword in enumerate(keyword_subject_codes, start=1):
+            create_subject("KEYWORD", keyword, subject_ordinal)
 
     # TODO: problem with create_series: SciELO series don't include ISSN, which is a required field in Thoth.
     # so this function doesn't currently work
