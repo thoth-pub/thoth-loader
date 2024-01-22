@@ -34,8 +34,6 @@ class SciELOLoader(BookLoader):
             # self.create_contributors(record, work_id)
             # self.create_languages(record, work_id)
             self.create_subjects(record, work_id)
-            # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
-            self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -269,55 +267,3 @@ class SciELOLoader(BookLoader):
 
         for subject_ordinal, keyword in enumerate(keyword_subject_codes, start=1):
             create_subject("KEYWORD", keyword, subject_ordinal)
-
-    # TODO: problem with create_series: SciELO series don't include ISSN, which is a required field in Thoth.
-    # so this function doesn't currently work
-    def create_series(self, record, imprint_id, work_id):
-        """Creates series associated with the current work
-
-        record: current JSON record
-
-        work_id: previously obtained ID of the current work
-        """
-        series_name = record["serie"][0][1]
-        issue_ordinal = int(record["serie"][2][1]) if record["serie"][2][1] else None
-        issn_digital = record["serie"][3][1]
-        series_type = "BOOK_SERIES"
-        collection_title = record["collection"][2][1]
-        if series_name:
-            series = {
-                "imprintId": imprint_id,
-                "seriesType": series_type,
-                "seriesName": series_name,
-                "issnPrint": None,
-                "issnDigital": issn_digital,
-                "seriesUrl": None,
-                "seriesDescription": None,
-                "seriesCfpUrl": None
-            }
-            logging.info(series)
-        elif collection_title:
-            series = {
-                "imprintId": imprint_id,
-                "seriesType": series_type,
-                "seriesName": collection_title,
-                "issnPrint": None,
-                "issnDigital": None,
-                "seriesUrl": None,
-                "seriesDescription": None,
-                "seriesCfpUrl": None
-            }
-            logging.info(series)
-        if series:
-            if series["seriesName"] not in self.all_series:
-                series_id = self.thoth.create_series(series)
-                self.all_series[series_name] = series_id
-            else:
-                series_id = self.all_series[series_name]
-            issue = {
-                "seriesId": series_id,
-                "workId": work_id,
-                "issueOrdinal": int(issue_ordinal) if issue_ordinal else None
-                }
-            logging.info(issue)
-            self.thoth.create_issue(issue)
