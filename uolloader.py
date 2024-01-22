@@ -19,8 +19,9 @@ class UOLLoader(BookLoader):
 
     def run(self):
         """Process ONIX and call Thoth to insert its data"""
-        # TODO default currency is also supplied: how to use this?
         default_language = self.data.header.default_language_of_text.value.value.upper()
+        # Default currency is also supplied, but no records in dataset have price amount without currency
+        # default_currency = self.data.header.default_currency_code.value.value
         # there's one publication per ONIX product, all related using a common ID within <RelatedWork>.
         # sort all related products into their own list: [[product, product], [product, product]]
         products = [Onix3Record(product) for product in self.data.no_product_or_product]
@@ -43,7 +44,7 @@ class UOLLoader(BookLoader):
                 except IndexError:
                     canonical_record = product_list[0]
 
-            work = self.get_work(canonical_record, self.imprint_id)
+            work = self.get_work(canonical_record)
             logging.info(work)
             work_id = "1234"
             # work_id = self.thoth.create_work(work)
@@ -55,12 +56,10 @@ class UOLLoader(BookLoader):
             self.create_subjects(canonical_record, work_id)
             self.create_series(canonical_record, work_id)
 
-    def get_work(self, record, imprint_id):
+    def get_work(self, record):
         """Returns a dictionary with all attributes of a 'work'
 
         record: current onix record
-
-        imprint_id: previously obtained ID of this work's imprint
         """
         title = record.title()
 
@@ -93,9 +92,9 @@ class UOLLoader(BookLoader):
             "fullTitle": title["fullTitle"],
             "title": title["title"],
             "subtitle": title["subtitle"],
-            "reference": None,
+            "reference": record.related_system_internal_identifier(),
             "edition": edition,
-            "imprintId": imprint_id,
+            "imprintId": self.imprint_id,
             "doi": doi,
             "publicationDate": record.publication_date(),
             "place": record.publication_place(),
@@ -142,7 +141,7 @@ class UOLLoader(BookLoader):
         def create_location():
             location = {
                 "publicationId": publication_id,
-                "landingPage": None,
+                "landingPage": url,
                 "fullTextUrl": url,
                 "locationPlatform": "OTHER",
                 "canonical": canonical,
@@ -319,14 +318,12 @@ class UOLLoader(BookLoader):
         process_codes(record.keywords_from_text(), "KEYWORD")
         process_codes(record.custom_codes(), "CUSTOM")
 
-    def create_series(self, record, work_id, imprint_id):
+    def create_series(self, record, work_id):
         """Creates all series associated with the current work
 
         record: current onix record
 
         work_id: previously obtained ID of the current work
-
-        imprint_id: previously obtained ID of this work's imprint
         """
         for series_record in record.serieses():
             series_name = Onix3Record.get_series_name(series_record)
@@ -355,7 +352,7 @@ class UOLLoader(BookLoader):
                     "seriesUrl": None,
                     "seriesDescription": None,
                     "seriesCfpUrl": None,
-                    "imprintId": imprint_id
+                    "imprintId": self.imprint_id
                 }
                 logging.info(series)
                 # series_id = self.thoth.create_series(series)

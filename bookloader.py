@@ -100,7 +100,6 @@ class BookLoader:
     publication_types = {
         "BB": "HARDBACK",
         "BC": "PAPERBACK",
-        "B102": "PAPERBACK",
         "B106": "PAPERBACK",
         "B402": "HARDBACK",
         "E101": "EPUB",

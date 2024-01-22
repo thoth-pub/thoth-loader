@@ -1,7 +1,7 @@
 """Parse an ONIX 3.0 Product"""
 import re
 import logging
-from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, BiographicalNote, \
+from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, \
 TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, CopyrightOwner, Collection, TitleText, TitleElement
 from bookloader import BookLoader
 
