@@ -31,8 +31,8 @@ class SciELOLoader(BookLoader):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
             # self.create_publications(record, work_id)
-            # self.create_contributors(record, work_id)
-            self.create_languages(record, work_id)
+            self.create_contributors(record, work_id)
+            # self.create_languages(record, work_id)
             # self.create_subjects(record, work_id)
             # can't ingest series data: SciELO series don't include ISSN, which is a required field in Thoth
 
@@ -56,7 +56,7 @@ class SciELOLoader(BookLoader):
         work_type = None
         # create workType based on creator role
         for creator in record["creators"]:
-            # if any creator is an organizer, workType is EDITED_BOOK
+            # if any creator is an "organizer" in JSON, workType is EDITED_BOOK
             if creator[0][1] == "organizer":
                 work_type = "EDITED_BOOK"
                 break
@@ -153,6 +153,7 @@ class SciELOLoader(BookLoader):
             profile_link = creator[2][1]
             orcid_id = None
             website = None
+            # profile_link (link_resume in JSON) may contain either an ORCID ID or a website
             if profile_link:
                 orcid = self.orcid_regex.search(profile_link)
                 if orcid:
@@ -174,29 +175,25 @@ class SciELOLoader(BookLoader):
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
+                # find existing contributor in Thoth.
                 contributor_id = self.all_contributors[fullname]
                 contributor_record = self.thoth.contributor(contributor_id, True)
-                contributor_json = json.loads(contributor_record)
-                logging.info("Existing contributor record:")
-                logging.info(contributor_record)
-                # logging.info("Existing contributor parsed JSON:")
-                # logging.info(contributor_json['data']['contributor']['firstName'])
-                json_first_name = contributor_json['data']['contributor']['firstName']
-                json_last_name = contributor_json['data']['contributor']['lastName']
-                json_full_name = contributor_json['data']['contributor']['fullName']
-                json_orcid = contributor_json['data']['contributor']['orcid']
-                json_contributor = {
-                    "firstName": json_first_name,
-                    "lastName": json_last_name,
-                    "fullName": json_full_name,
-                    "orcid": json_orcid,
+                contributor_json_from_thoth = json.loads(contributor_record)
+                thoth_first_name = contributor_json_from_thoth['data']['contributor']['firstName']
+                thoth_last_name = contributor_json_from_thoth['data']['contributor']['lastName']
+                thoth_full_name = contributor_json_from_thoth['data']['contributor']['fullName']
+                thoth_orcid = contributor_json_from_thoth['data']['contributor']['orcid']
+                thoth_website = contributor_json_from_thoth['data']['contributor']['website']
+                thoth_contributor = {
+                    "firstName": thoth_first_name,
+                    "lastName": thoth_last_name,
+                    "fullName": thoth_full_name,
+                    "orcid": thoth_orcid,
+                    "website": thoth_website,
                     "contributorId": contributor_id,
                 }
-
-                # logging.info("JSON contributor dict:")
-                # logging.info(json_contributor)
-
-                contributor = {
+                # create contributor dict from JSON
+                json_contributor = {
                     "firstName": name,
                     "lastName": surname,
                     "fullName": fullname,
@@ -204,10 +201,21 @@ class SciELOLoader(BookLoader):
                     "website": website,
                     "contributorId": contributor_id,
                 }
-                # logging.info("Existing contributor dict:")
-                # logging.info(contributor)
-                # TODO: It'd be good to get the existing contributor from Thoth and only update if anything's changed
-                # self.thoth.update_contributor(contributor)
+                if json_contributor != thoth_contributor:
+                    # combine the two dicts, replacing any None values with values from the other dict
+                    #  combined_contributor = {key: json_contributor[key] if json_contributor[key] is not None else thoth_contributor[key] for key in set(thoth_contributor) | set(json_contributor)}
+                    combined_contributor = {}
+                    # some contributors may have contributed to multiple books and be in the JSON multiple times
+                    # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
+                    for key in set(thoth_contributor) | set(json_contributor):
+                        if json_contributor[key] is not None:
+                            combined_contributor[key] = json_contributor[key]
+                        else:
+                            combined_contributor[key] = thoth_contributor[key]
+                    # logging.info(combined_contributor)
+                    self.thoth.update_contributor(combined_contributor)
+                # else:
+                    # logging.info("Contributor has not changed. Skipping...")
 
             contribution = {
                 "workId": work_id,
@@ -221,7 +229,7 @@ class SciELOLoader(BookLoader):
                 "fullName": fullname,
             }
             # logging.info(contribution)
-            # self.thoth.create_contribution(contribution)
+            self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id):
         """Creates language associated with the current work
