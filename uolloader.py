@@ -30,8 +30,18 @@ class UOLLoader(BookLoader):
             grouped_products.append(list(group))
 
         for product_list in grouped_products:
-            # TODO the set of publications isn't consistent; lots of info is duplicated
-            canonical_record = product_list[0]
+            if len(product_list) == 1:
+                canonical_record = product_list[0]
+            else:
+                # Where a PDF record is present, it's usually the most comprehensive
+                # Otherwise, no consistent pattern/differences are minor, so choose first record
+                # (Almost all fields are replicated across records in a group; occasionally
+                # DOI/licence/landing page are missing from some, or page counts/dates differ slightly)
+                try:
+                    canonical_record = [record for record in product_list
+                                        if self.publication_types[record.product_type()] == "PDF"][0]
+                except IndexError:
+                    canonical_record = product_list[0]
 
             work = self.get_work(canonical_record, self.imprint_id)
             logging.info(work)
