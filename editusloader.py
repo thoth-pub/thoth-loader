@@ -43,12 +43,6 @@ class EDITUSLoader(BookLoader):
         # resolve DOI to obtain landing page
         landing_page = requests.get(doi).url
 
-        # get license if it has one
-        try:
-            epub_license = record.license()
-        except AttributeError:
-            epub_license = None
-
         work = {
             "workType": record.work_type(),
             "workStatus": "ACTIVE",
@@ -67,7 +61,7 @@ class EDITUSLoader(BookLoader):
             "tableCount": None,
             "audioCount": None,
             "videoCount": None,
-            "license": epub_license,
+            "license": record.license(),
             "copyrightHolder": None,
             "landingPage": landing_page,
             "lccn": None,
