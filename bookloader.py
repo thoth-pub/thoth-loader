@@ -303,8 +303,7 @@ class BookLoader:
             hyphenated_issn = str(issn)[:4] + '-' + str(issn)[4:]
         if not len(hyphenated_issn) == 9:
             raise ValueError("ISSN incorrectly formatted: %s" % issn)
-        else:
-            return hyphenated_issn
+        return hyphenated_issn
 
     @staticmethod
     def sanitise_url(url):
