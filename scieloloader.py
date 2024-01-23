@@ -24,9 +24,9 @@ class SciELOLoader(BookLoader):
             logging.info('workId: %s' % work_id)
             work = self.thoth.work_by_id(work_id)
             self.create_publications(record, work, work_id)
-            # self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
-            # self.create_subjects(record, work_id)
+            self.create_contributors(record, work, work_id)
+            self.create_languages(record, work, work_id)
+            self.create_subjects(record, work, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -142,14 +142,15 @@ class SciELOLoader(BookLoader):
                 self.thoth.create_location(location)
 
 
-    def create_contributors(self, record, work_id):
+    def create_contributors(self, record, work, work_id):
         """Creates/updates all contributors associated with the current work and their contributions
 
         record: current JSON record
 
         work_id: previously obtained ID of the current work
         """
-        contribution_ordinal = 0
+        # contribution_ordinal = 0
+        highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
         for creator in record["creators"]:
             full_name_inverted = creator[1][1].split(',')
             name = full_name_inverted[1].strip()
@@ -168,7 +169,6 @@ class SciELOLoader(BookLoader):
                 else:
                     orcid_id = None
                     website = profile_link
-            contribution_ordinal += 1
             contributor = {
                 "firstName": name,
                 "lastName": surname,
@@ -178,10 +178,12 @@ class SciELOLoader(BookLoader):
             }
 
             if fullname not in self.all_contributors:
+                logging.info("New contributor")
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
                 # find existing contributor in Thoth
+                logging.info("Existing contributor")
                 contributor_id = self.all_contributors[fullname]
                 contributor_record = self.thoth.contributor(contributor_id, True)
                 contributor_json_from_thoth = json.loads(contributor_record)
@@ -208,6 +210,7 @@ class SciELOLoader(BookLoader):
                     "contributorId": contributor_id,
                 }
                 if json_contributor != thoth_contributor:
+                    logging.info("Updating contributor")
                     combined_contributor = {}
                     # some contributors may have contributed to multiple books and be in the JSON multiple times
                     # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
@@ -218,22 +221,30 @@ class SciELOLoader(BookLoader):
                             combined_contributor[key] = thoth_contributor[key]
                     # logging.info(combined_contributor)
                     self.thoth.update_contributor(combined_contributor)
+            existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
+            if existing_contribution:
+                logging.info("Existing contribution")
+                contribution_id = existing_contribution.contributionId
+                logging.info('contributionId: %s' % contribution_id)
+            else:
+                logging.info("New contribution")
+                # contribution_ordinal += 1
+                contribution = {
+                    "workId": work_id,
+                    "contributorId": contributor_id,
+                    "contributionType": contribution_type,
+                    "mainContribution": "true",
+                    "contributionOrdinal": highest_contribution_ordinal + 1,
+                    "biography": None,
+                    "firstName": name,
+                    "lastName": surname,
+                    "fullName": fullname,
+                }
+                # logging.info(contribution)
+                self.thoth.create_contribution(contribution)
+                highest_contribution_ordinal += 1
 
-            contribution = {
-                "workId": work_id,
-                "contributorId": contributor_id,
-                "contributionType": contribution_type,
-                "mainContribution": "true",
-                "contributionOrdinal": contribution_ordinal,
-                "biography": None,
-                "firstName": name,
-                "lastName": surname,
-                "fullName": fullname,
-            }
-            # logging.info(contribution)
-            self.thoth.create_contribution(contribution)
-
-    def create_languages(self, record, work_id):
+    def create_languages(self, record, work, work_id):
         """Creates language associated with the current work
 
         record: current JSON record
@@ -241,16 +252,22 @@ class SciELOLoader(BookLoader):
         work_id: previously obtained ID of the current work
         """
 
-        languageCode = self.language_codes[record["language"]]
-        language = {
-            "workId": work_id,
-            "languageCode": languageCode,
-            "languageRelation": "ORIGINAL",
-            "mainLanguage": "true"
-        }
-        self.thoth.create_language(language)
+        language_code = self.language_codes[record["language"]]
 
-    def create_subjects(self, record, work_id):
+        # check to see if work already has this language
+        if any(l.languageCode == language_code for l in work.languages):
+            logging.info("Existing language")
+        else:
+            logging.info("New language")
+            language = {
+                "workId": work_id,
+                "languageCode": language_code,
+                "languageRelation": "ORIGINAL",
+                "mainLanguage": "true"
+            }
+            self.thoth.create_language(language)
+
+    def create_subjects(self, record, work, work_id):
         """Creates all subjects associated with the current work
 
         record: current JSON record
@@ -268,9 +285,23 @@ class SciELOLoader(BookLoader):
                 "subjectOrdinal": subject_ordinal
             }
             self.thoth.create_subject(subject)
-            logging.info(subject)
+            # logging.info(subject)
 
-        create_subject("BISAC", BISAC_subject_code, 1)
+        # skip this subject if the work already has a subject
+        # with that BISAC subject code
+        if any(s.subjectCode == BISAC_subject_code and s.subjectType == "BISAC" \
+            for s in work.subjects):
+            logging.info("Existing BISAC subject")
+        else:
+            logging.info("New BISAC subject")
+            create_subject("BISAC", BISAC_subject_code, 1)
 
         for subject_ordinal, keyword in enumerate(keyword_subject_codes, start=1):
+            # skip this subject if the work already has a subject
+            # with that keyword subject type/subject code combination
+            if any((s.subjectCode == keyword and s.subjectType == "KEYWORD" \
+                for s in work.subjects)):
+                logging.info("Existing keyword subject")
+                continue
+            logging.info("New keyword subject")
             create_subject("KEYWORD", keyword, subject_ordinal)
