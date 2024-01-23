@@ -2,7 +2,7 @@
 import re
 import logging
 from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, \
-TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, CopyrightOwner, Collection, TitleText, TitleElement
+TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, Collection, TitleText, TitleElement
 from bookloader import BookLoader
 
 
@@ -98,15 +98,19 @@ class Onix3Record:
             return city[0].value
 
     def publication_date(self):
-        return BookLoader.sanitise_date(self._product.publishing_detail.publishing_date[0].date.value)
+        # Fall back to 19 Publication date of print counterpart
+        # if 01 Publication date is missing
+        return BookLoader.sanitise_date(
+            [pub_date.date.value
+            for pub_date in self._product.publishing_detail.publishing_date
+            if pub_date.publishing_date_role.value.value in ["01", "19"]][0])
 
     def copyright_holder(self):
         try:
             return [name.value
                     for statement in self._product.publishing_detail.copyright_statement
                     for owner in statement.copyright_year_or_copyright_owner
-                    if type(owner) is CopyrightOwner
-                    for name in owner.person_name_or_corporate_name][0]
+                    for name in getattr(owner, 'person_name_or_corporate_name', [])][0]
         except IndexError:
             return None
 
@@ -224,9 +228,9 @@ class Onix3Record:
         return related[0]
 
     def related_system_internal_identifier(self):
-        related = [ident.idvalue.value for ident in self._product.related_material.related_work[0].work_identifier
-                   if ident.idtype_name is not None and ident.idtype_name.value == "system-internal-identifier"]
-        return related[0]
+        return [ident.idvalue.value for work in self._product.related_material.related_work
+                for ident in work.work_identifier
+                if ident.idtype_name is not None and ident.idtype_name.value == "system-internal-identifier"][0]
 
     def product_type(self):
         try:
@@ -304,9 +308,9 @@ class Onix3Record:
             except IndexError:
                 position = None
             try:
-                institution = [insitution.value
-                            for insitution in getattr(affiliation, 'professional_position_or_affiliation', [])
-                            if type(insitution) is Affiliation][0]
+                institution = [institution.value
+                               for institution in getattr(affiliation, 'professional_position_or_affiliation', [])
+                               if type(institution) is Affiliation][0]
             except IndexError:
                 institution = None
             affiliations_with_positions.append((position, institution))
