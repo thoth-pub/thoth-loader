@@ -370,3 +370,4 @@ class BookLoader:
             return page_number, page_breakdown
 
         return None, None
+

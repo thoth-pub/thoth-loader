@@ -97,3 +97,4 @@ if __name__ == '__main__':
     ARGUMENTS = get_arguments()
     run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url,
         ARGUMENTS.email, ARGUMENTS.password)
+

@@ -11,3 +11,4 @@ class EDITUSLoader(SciELOLoader):
     publisher_shortname = None
     publisher_url = "http://www.uesc.br/editora/"
     cache_institutions = False
+
