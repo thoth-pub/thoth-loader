@@ -36,6 +36,7 @@ class SciELOLoader(BookLoader):
         imprint_id: previously obtained ID of this work's imprint
         """
         title = self.split_title(record["title"])
+        doi = self.sanitise_doi(record["doi_number"])
         publication_date = self.sanitise_date(record["year"])
         if record["city"] and record["country"]:
             publication_place = record["city"] + ", " + record["country"]
@@ -64,7 +65,7 @@ class SciELOLoader(BookLoader):
             "reference": record["_id"],
             "edition": record["edition"][0] if record["edition"] else 1,
             "imprintId": imprint_id,
-            "doi": record["doi_number"],
+            "doi": doi,
             "publicationDate": publication_date,
             "place": publication_place,
             "pageCount": int(record["pages"]),

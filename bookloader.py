@@ -310,6 +310,8 @@ class BookLoader:
             return None
         if identifier.startswith("https://{}.org/".format(domain)):
             return identifier
+        elif identifier.startswith("http://{}.org/".format(domain)):
+            return identifier.replace("http://", "https://")
         elif identifier.startswith("{}.org/".format(domain)):
             return BookLoader.sanitise_url(identifier)
         else:
