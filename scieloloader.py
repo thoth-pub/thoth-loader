@@ -128,14 +128,14 @@ class SciELOLoader(BookLoader):
                 publication_id = self.thoth.create_publication(publication)
                 logging.info('publicationId: %s' % publication_id)
                 logging.info("New publication")
-            if existing_pub and any(l.locationPlatform == "OTHER" for l in existing_pub.locations):
+            if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
                 logging.info("Existing location")
             else:
                 location = {
                     "publicationId": publication_id,
                     "landingPage": landing_page,
                     "fullTextUrl": full_text,
-                    "locationPlatform": "OTHER",
+                    "locationPlatform": "SCIELO_BOOKS",
                     "canonical": "true",
                 }
                 logging.info("New location")
