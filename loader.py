@@ -16,6 +16,7 @@ from whploader import WHPLoader
 from whpchapterloader import WHPChapterLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
+from editusloader import EDITUSLoader
 from scieloloader import SciELOLoader
 from ubiquityloader import UbiquityPressesLoader
 
@@ -30,6 +31,7 @@ LOADERS = {
     "WHP-chapters": WHPChapterLoader,
     "UWP": UWPLoader,
     "LSE": LSELoader,
+    "EDITUS": EDITUSLoader,
     "SciELO": SciELOLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
 }

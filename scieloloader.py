@@ -9,14 +9,6 @@ from thothlibrary import ThothError
 
 class SciELOLoader(BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
-    import_format = "JSON"
-    single_imprint = True
-    # TODO: when ingesting from other imprints (e.g. EDUFBA), change name.
-    publisher_name = "EDITUS"
-    publisher_shortname = None
-    # TODO: when ingesting other publishers, change URL.
-    publisher_url = "http://www.uesc.br/editora/"
-    cache_institutions = False
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
@@ -30,9 +22,9 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            # self.create_publications(record, work_id)
-            # self.create_contributors(record, work_id)
-            # self.create_languages(record, work_id)
+            self.create_publications(record, work_id)
+            self.create_contributors(record, work_id)
+            self.create_languages(record, work_id)
             self.create_subjects(record, work_id)
 
     def get_work(self, record, imprint_id):
