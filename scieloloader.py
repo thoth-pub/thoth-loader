@@ -22,10 +22,11 @@ class SciELOLoader(BookLoader):
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            self.create_publications(record, work_id)
-            self.create_contributors(record, work_id)
-            self.create_languages(record, work_id)
-            self.create_subjects(record, work_id)
+            work = self.thoth.work_by_id(work_id)
+            self.create_publications(record, work, work_id)
+            # self.create_contributors(record, work_id)
+            # self.create_languages(record, work_id)
+            # self.create_subjects(record, work_id)
 
     def get_work(self, record, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -90,7 +91,7 @@ class SciELOLoader(BookLoader):
         }
         return work
 
-    def create_publications(self, record, work_id):
+    def create_publications(self, record, work, work_id):
         """Creates PDF, EPUB, and paperback publications associated with the current work
 
         record: current JSON record
@@ -117,15 +118,29 @@ class SciELOLoader(BookLoader):
                 "weightG": None,
                 "weightOz": None,
             }
-            publication_id = self.thoth.create_publication(publication)
-            location = {
-                "publicationId": publication_id,
-                "landingPage": landing_page,
-                "fullTextUrl": full_text,
-                "locationPlatform": "OTHER",
-                "canonical": "true",
-            }
-            self.thoth.create_location(location)
+
+            existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
+            if existing_pub:
+                publication_id = existing_pub.publicationId
+                logging.info('publicationId: %s' % publication_id)
+                logging.info("Existing publication")
+            else:
+                publication_id = self.thoth.create_publication(publication)
+                logging.info('publicationId: %s' % publication_id)
+                logging.info("New publication")
+            if existing_pub and any(l.locationPlatform == "OTHER" for l in existing_pub.locations):
+                logging.info("Existing location")
+            else:
+                location = {
+                    "publicationId": publication_id,
+                    "landingPage": landing_page,
+                    "fullTextUrl": full_text,
+                    "locationPlatform": "OTHER",
+                    "canonical": "true",
+                }
+                logging.info("New location")
+                self.thoth.create_location(location)
+
 
     def create_contributors(self, record, work_id):
         """Creates/updates all contributors associated with the current work and their contributions
