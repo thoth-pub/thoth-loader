@@ -24,8 +24,10 @@ class UOLLoader(BookLoader):
         # default_currency = self.data.header.default_currency_code.value.value
         # there's one publication per ONIX product, all related using a common ID within <RelatedWork>.
         # sort all related products into their own list: [[product, product], [product, product]]
-        products = [Onix3Record(product) for product in self.data.no_product_or_product]
-        sorted_products = sorted(products, key=lambda x: x.related_system_internal_identifier())
+        products = [Onix3Record(product)
+                    for product in self.data.no_product_or_product]
+        sorted_products = sorted(
+            products, key=lambda x: x.related_system_internal_identifier())
         grouped_products = []
         for key, group in itertools.groupby(sorted_products, key=lambda x: x.related_system_internal_identifier()):
             grouped_products.append(list(group))
@@ -163,7 +165,8 @@ class UOLLoader(BookLoader):
         }
         for measure_type, measure_unit, measurement in record.dimensions():
             try:
-                publication.update({self.dimension_types[(measure_type, measure_unit)]: measurement})
+                publication.update(
+                    {self.dimension_types[(measure_type, measure_unit)]: measurement})
             except KeyError:
                 # Ignore any dimension types which aren't stored in Thoth (e.g. weight in kg)
                 pass
@@ -188,7 +191,8 @@ class UOLLoader(BookLoader):
         for contributor_record in record.contributors():
             given_name = None
             try:
-                given_name = Onix3Record.get_names_before_key(contributor_record)
+                given_name = Onix3Record.get_names_before_key(
+                    contributor_record)
             except IndexError:
                 # Sometimes this is missing: this is OK as it's optional in Thoth
                 pass
@@ -323,7 +327,8 @@ class UOLLoader(BookLoader):
                 # Use for both print and digital (as Thoth requires both)
                 issn = None
                 try:
-                    issn = BookLoader.sanitise_issn(Onix3Record.get_issn(series_record))
+                    issn = BookLoader.sanitise_issn(
+                        Onix3Record.get_issn(series_record))
                 except ValueError as e:
                     logging.error(f"{e} ({work_id})")
                 if not issn:

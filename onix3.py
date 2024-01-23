@@ -1,8 +1,8 @@
 """Parse an ONIX 3.0 Product"""
 import re
 import logging
-from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, ProfessionalAffiliation, \
-TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, PersonName, ProfessionalPosition, Affiliation, Collection, TitleText, TitleElement
+from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, PersonName, ProfessionalAffiliation, \
+    ProfessionalPosition, Affiliation, TitleElement, TitleText, TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, Collection
 from bookloader import BookLoader
 
 
@@ -102,8 +102,8 @@ class Onix3Record:
         # if 01 Publication date is missing
         return BookLoader.sanitise_date(
             [pub_date.date.value
-            for pub_date in self._product.publishing_detail.publishing_date
-            if pub_date.publishing_date_role.value.value in ["01", "19"]][0])
+             for pub_date in self._product.publishing_detail.publishing_date
+             if pub_date.publishing_date_role.value.value in ["01", "19"]][0])
 
     def copyright_holder(self):
         try:
@@ -138,7 +138,8 @@ class Onix3Record:
         else:
             try:
                 # Get total number of illustrations from <IllustrationsNote>, which is of the form e.g. 10 bw illus"""
-                illustrations_note = self._product.descriptive_detail.illustrations_note[0].content[0]
+                illustrations_note = self._product.descriptive_detail.illustrations_note[
+                    0].content[0]
                 numbers = re.findall(r'\d+', illustrations_note)
                 total = sum(int(number) for number in numbers)
                 return total
@@ -167,9 +168,11 @@ class Onix3Record:
     def language_codes_and_roles(self):
         languages = self._product.descriptive_detail.language
         language_codes_and_roles = []
-        unsupported = next((x for x in languages if x.language_role.value.value not in ["01", "02"]), None)
+        unsupported = next(
+            (x for x in languages if x.language_role.value.value not in ["01", "02"]), None)
         if unsupported is not None:
-            raise KeyError("Unsupported language role: %s" % unsupported.language_role.value.value)
+            raise KeyError("Unsupported language role: %s" %
+                           unsupported.language_role.value.value)
         if next((x for x in languages if x.language_role.value.value == "02"), None) is not None:
             language_codes_and_roles = [(language.language_code.value.value.upper(), "TRANSLATED_FROM")
                                         for language in languages if language.language_role.value.value == "02"]
@@ -215,8 +218,8 @@ class Onix3Record:
                 for product_supply in self._product.product_supply
                 for supply_detail in product_supply.supply_detail
                 for price in supply_detail.unpriced_item_type_or_price
-                if hasattr(price, 'price_amount') and price.price_amount is not None \
-                    and str(price.price_amount.value) != "0.00"]
+                if hasattr(price, 'price_amount') and price.price_amount is not None
+                and str(price.price_amount.value) != "0.00"]
 
     def dimensions(self):
         return [(m.measure_type.value.value, m.measure_unit_code.value.value, str(m.measurement.value))
@@ -240,7 +243,8 @@ class Onix3Record:
             return product_type
         except (IndexError, KeyError):
             try:
-                product_type = self._product.descriptive_detail.product_form_description[0].value
+                product_type = self._product.descriptive_detail.product_form_description[
+                    0].value
                 # Check that this ONIX code is one we can unambiguously convert to a Thoth publication type
                 BookLoader.publication_types[product_type]
                 return product_type
@@ -342,7 +346,8 @@ class Onix3Record:
                             if name_identifier.name_idtype.value.value == "21"][0]
         except IndexError:
             return None
-        orcid_hyphenated = '-'.join(orcid_digits[i:i+4] for i in range(0, len(orcid_digits), 4))
+        orcid_hyphenated = '-'.join(orcid_digits[i:i+4]
+                                    for i in range(0, len(orcid_digits), 4))
         return BookLoader.sanitise_orcid(orcid_hyphenated)
 
     @staticmethod
