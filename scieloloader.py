@@ -305,3 +305,4 @@ class SciELOLoader(BookLoader):
                 continue
             logging.info("New keyword subject")
             create_subject("KEYWORD", keyword, subject_ordinal)
+
