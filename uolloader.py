@@ -45,10 +45,8 @@ class UOLLoader(BookLoader):
                     canonical_record = product_list[0]
 
             work = self.get_work(canonical_record)
-            logging.info(work)
-            work_id = "1234"
-            # work_id = self.thoth.create_work(work)
-            # logging.info('workId: %s' % work_id)
+            work_id = self.thoth.create_work(work)
+            logging.info('workId: %s' % work_id)
             for record in product_list:
                 self.create_publications(record, work_id)
             self.create_contributors(canonical_record, work_id)
@@ -135,8 +133,7 @@ class UOLLoader(BookLoader):
                 "currencyCode": currency_code,
                 "unitPrice": unit_price,
             }
-            # self.thoth.create_price(price)
-            logging.info(price)
+            self.thoth.create_price(price)
 
         def create_location():
             location = {
@@ -146,8 +143,7 @@ class UOLLoader(BookLoader):
                 "locationPlatform": "OTHER",
                 "canonical": canonical,
             }
-            # self.thoth.create_location(location)
-            logging.info(location)
+            self.thoth.create_location(location)
 
         publication = {
             "workId": work_id,
@@ -171,9 +167,7 @@ class UOLLoader(BookLoader):
             except KeyError:
                 # Ignore any dimension types which aren't stored in Thoth (e.g. weight in kg)
                 pass
-        # publication_id = self.thoth.create_publication(publication)
-        publication_id = "12345"
-        logging.info(publication)
+        publication_id = self.thoth.create_publication(publication)
 
         # Records frequently include the same currency/price pair multiple times
         # (representing different suppliers): remove duplicates
@@ -214,9 +208,7 @@ class UOLLoader(BookLoader):
                     "orcid": orcid,
                     "website": Onix3Record.get_website(contributor_record),
                 }
-                logging.info(contributor)
-                contributor_id = '123456'
-                # contributor_id = self.thoth.create_contributor(contributor)
+                contributor_id = self.thoth.create_contributor(contributor)
                 # cache new contributor
                 self.all_contributors[full_name] = contributor_id
                 if orcid:
@@ -233,9 +225,7 @@ class UOLLoader(BookLoader):
                 "lastName": family_name,
                 "fullName": full_name,
             }
-            logging.info(contribution)
-            # contribution_id = self.thoth.create_contribution(contribution)
-            contribution_id = "1234"
+            contribution_id = self.thoth.create_contribution(contribution)
 
             for index, (position, institution_string) in enumerate(Onix3Record.get_affiliations_with_positions(contributor_record)):
                 if institution_string is None:
@@ -257,9 +247,7 @@ class UOLLoader(BookLoader):
                         "ror": None,
                         "countryCode": None,
                     }
-                    logging.info(institution)
-                    # institution_id = self.thoth.create_institution(institution)
-                    institution_id = "1234"
+                    institution_id = self.thoth.create_institution(institution)
                     # cache new institution
                     self.all_institutions[institution_name] = institution_id
 
@@ -269,8 +257,7 @@ class UOLLoader(BookLoader):
                     "position": position,
                     "affiliationOrdinal": index + 1
                 }
-                logging.info(affiliation)
-                # self.thoth.create_affiliation(affiliation)
+                self.thoth.create_affiliation(affiliation)
 
     def create_languages(self, record, work_id, default_language):
         """Creates language associated with the current work
@@ -291,8 +278,7 @@ class UOLLoader(BookLoader):
                 "languageRelation": language_relation,
                 "mainLanguage": "true"
             }
-            logging.info(language)
-            # self.thoth.create_language(language)
+            self.thoth.create_language(language)
 
     def create_subjects(self, record, work_id):
         """Creates all subjects associated with the current work
@@ -309,8 +295,7 @@ class UOLLoader(BookLoader):
                     "subjectCode": subject_code,
                     "subjectOrdinal": index + 1
                 }
-                # self.thoth.create_subject(subject)
-                logging.info(subject)
+                self.thoth.create_subject(subject)
 
         process_codes(record.thema_codes(), "THEMA")
         process_codes(record.bisac_codes(), "BISAC")
@@ -354,9 +339,7 @@ class UOLLoader(BookLoader):
                     "seriesCfpUrl": None,
                     "imprintId": self.imprint_id
                 }
-                logging.info(series)
-                # series_id = self.thoth.create_series(series)
-                series_id = "1234"
+                series_id = self.thoth.create_series(series)
                 self.all_series[series_name] = series_id
             else:
                 series_id = self.all_series[series_name]
@@ -365,5 +348,4 @@ class UOLLoader(BookLoader):
                 "workId": work_id,
                 "issueOrdinal": int(issue_ordinal)
             }
-            logging.info(issue)
-            # self.thoth.create_issue(issue)
+            self.thoth.create_issue(issue)
