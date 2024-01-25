@@ -17,27 +17,24 @@ class SciELOLoader(BookLoader):
         """Process JSON and call Thoth to insert its data"""
         for record in self.data:
             work = self.get_work(record, self.imprint_id)
+            # try to find the work in Thoth
             try:
-                # try to find the work in Thoth
                 work_id = self.thoth.work_by_doi(work['doi']).workId
                 existing_work = self.thoth.work_by_id(work_id)
-
                 # if work is found, try to update it with the new data
                 if existing_work:
                     try:
                         existing_work.update((k, v) for k, v in work.items() if v is not None)
                         self.thoth.update_work(existing_work)
-                    # if the update fails, log the error and exit the import
+                        logging.info(f"updated workId: {work_id}")
+                    # if update fails, log the error and exit the import
                     except Exception as e:
                         logging.error(f"Failed to update work with id {work_id}, exception: {e}")
                         return
             # if work isn't found, create it
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
-
-
-
-            logging.info('workId: %s' % work_id)
+                logging.info(f"created workId: {work_id}")
             work = self.thoth.work_by_id(work_id)
             self.create_publications(record, work, work_id)
             self.create_contributors(record, work, work_id)
@@ -54,14 +51,13 @@ class SciELOLoader(BookLoader):
         title = self.split_title(record["title"])
         doi = self.sanitise_doi(record["doi_number"])
         publication_date = self.sanitise_date(record["year"])
+        publication_place = None
         if record["city"] and record["country"]:
             publication_place = record["city"] + ", " + record["country"]
         elif record["city"] and not record["country"]:
             publication_place = record["city"]
         elif not record["city"] and record["country"]:
             publication_place = record["country"]
-        else:
-            publication_place = None
         work_type = None
         # create workType based on creator role
         for creator in record["creators"]:
@@ -79,7 +75,7 @@ class SciELOLoader(BookLoader):
             "title": title["title"],
             "subtitle": title["subtitle"],
             "reference": record["_id"],
-            "edition": record["edition"][0] if record["edition"] else 1,
+            "edition": record["edition"][0] if record["edition"] and record["edition"][0].isdigit() else 1,
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": publication_date,
@@ -139,25 +135,18 @@ class SciELOLoader(BookLoader):
             existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
             if existing_pub:
                 publication_id = existing_pub.publicationId
-                logging.info('publicationId: %s' % publication_id)
-                logging.info("Existing publication")
             else:
                 publication_id = self.thoth.create_publication(publication)
-                logging.info('publicationId: %s' % publication_id)
-                logging.info("New publication")
             if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
-                logging.info("Existing location")
-            else:
-                location = {
-                    "publicationId": publication_id,
-                    "landingPage": landing_page,
-                    "fullTextUrl": full_text,
-                    "locationPlatform": "SCIELO_BOOKS",
-                    "canonical": "true",
-                }
-                logging.info("New location")
-                self.thoth.create_location(location)
-
+                continue
+            location = {
+                "publicationId": publication_id,
+                "landingPage": landing_page,
+                "fullTextUrl": full_text,
+                "locationPlatform": "SCIELO_BOOKS",
+                "canonical": "true",
+            }
+            self.thoth.create_location(location)
 
     def create_contributors(self, record, work, work_id):
         """Creates/updates all contributors associated with the current work and their contributions
@@ -166,7 +155,6 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        # contribution_ordinal = 0
         highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
         for creator in record["creators"]:
             full_name_inverted = creator[1][1].split(',')
@@ -174,10 +162,11 @@ class SciELOLoader(BookLoader):
             surname = full_name_inverted[0]
             fullname = f"{name} {surname}"
             contribution_type = self.contribution_types[creator[0][1]]
-            profile_link = creator[2][1]
             orcid_id = None
             website = None
+            profile_link = creator[2][1]
             # profile_link (link_resume in JSON) may contain either an ORCID ID or a website
+            # assign value to orcid_id or website accordingly
             if profile_link:
                 orcid = self.orcid_regex.search(profile_link)
                 if orcid:
@@ -193,59 +182,14 @@ class SciELOLoader(BookLoader):
                 "orcid": orcid_id,
                 "website": website,
             }
-
+            contributor_id = self.all_contributors[contributor["fullName"]]
             if fullname not in self.all_contributors:
-                logging.info("New contributor")
                 contributor_id = self.thoth.create_contributor(contributor)
                 self.all_contributors[fullname] = contributor_id
             else:
-                # find existing contributor in Thoth
-                logging.info("Existing contributor")
-                contributor_id = self.all_contributors[fullname]
-                contributor_record = self.thoth.contributor(contributor_id, True)
-                contributor_json_from_thoth = json.loads(contributor_record)
-                thoth_first_name = contributor_json_from_thoth['data']['contributor']['firstName']
-                thoth_last_name = contributor_json_from_thoth['data']['contributor']['lastName']
-                thoth_full_name = contributor_json_from_thoth['data']['contributor']['fullName']
-                thoth_orcid = contributor_json_from_thoth['data']['contributor']['orcid']
-                thoth_website = contributor_json_from_thoth['data']['contributor']['website']
-                thoth_contributor = {
-                    "firstName": thoth_first_name,
-                    "lastName": thoth_last_name,
-                    "fullName": thoth_full_name,
-                    "orcid": thoth_orcid,
-                    "website": thoth_website,
-                    "contributorId": contributor_id,
-                }
-                # create contributor dict from JSON
-                json_contributor = {
-                    "firstName": name,
-                    "lastName": surname,
-                    "fullName": fullname,
-                    "orcid": orcid_id,
-                    "website": website,
-                    "contributorId": contributor_id,
-                }
-                if json_contributor != thoth_contributor:
-                    logging.info("Updating contributor")
-                    combined_contributor = {}
-                    # some contributors may have contributed to multiple books and be in the JSON multiple times
-                    # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
-                    for key in set(thoth_contributor) | set(json_contributor):
-                        if json_contributor[key] is not None:
-                            combined_contributor[key] = json_contributor[key]
-                        else:
-                            combined_contributor[key] = thoth_contributor[key]
-                    # logging.info(combined_contributor)
-                    self.thoth.update_contributor(combined_contributor)
+                self.update_scielo_contributor(contributor, contributor_id)
             existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
-            if existing_contribution:
-                logging.info("Existing contribution")
-                contribution_id = existing_contribution.contributionId
-                logging.info('contributionId: %s' % contribution_id)
-            else:
-                logging.info("New contribution")
-                # contribution_ordinal += 1
+            if not existing_contribution:
                 contribution = {
                     "workId": work_id,
                     "contributorId": contributor_id,
@@ -257,9 +201,39 @@ class SciELOLoader(BookLoader):
                     "lastName": surname,
                     "fullName": fullname,
                 }
-                # logging.info(contribution)
                 self.thoth.create_contribution(contribution)
                 highest_contribution_ordinal += 1
+
+    def update_scielo_contributor(self, contributor, contributor_id):
+        # find existing contributor in Thoth
+        contributor_record = self.thoth.contributor(contributor_id, True)
+        contributor_json_from_thoth = json.loads(contributor_record)
+        thoth_first_name = contributor_json_from_thoth['data']['contributor']['firstName']
+        thoth_last_name = contributor_json_from_thoth['data']['contributor']['lastName']
+        thoth_full_name = contributor_json_from_thoth['data']['contributor']['fullName']
+        thoth_orcid = contributor_json_from_thoth['data']['contributor']['orcid']
+        thoth_website = contributor_json_from_thoth['data']['contributor']['website']
+        thoth_contributor = {
+            "firstName": thoth_first_name,
+            "lastName": thoth_last_name,
+            "fullName": thoth_full_name,
+            "orcid": thoth_orcid,
+            "website": thoth_website,
+            "contributorId": contributor_id,
+        }
+        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
+        contributor["contributorId"] = contributor_id
+        if contributor != thoth_contributor:
+            combined_contributor = {}
+            # some contributors may have contributed to multiple books and be in the JSON multiple times
+            # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
+            for key in set(thoth_contributor) | set(contributor):
+                if contributor[key] is not None:
+                    combined_contributor[key] = contributor[key]
+                else:
+                    combined_contributor[key] = thoth_contributor[key]
+            self.thoth.update_contributor(combined_contributor)
+        return contributor
 
     def create_languages(self, record, work, work_id):
         """Creates language associated with the current work
@@ -268,21 +242,18 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-
         language_code = self.language_codes[record["language"]]
 
         # check to see if work already has this language
         if any(l.languageCode == language_code for l in work.languages):
-            logging.info("Existing language")
-        else:
-            logging.info("New language")
-            language = {
-                "workId": work_id,
-                "languageCode": language_code,
-                "languageRelation": "ORIGINAL",
-                "mainLanguage": "true"
-            }
-            self.thoth.create_language(language)
+            return
+        language = {
+            "workId": work_id,
+            "languageCode": language_code,
+            "languageRelation": "ORIGINAL",
+            "mainLanguage": "true"
+        }
+        self.thoth.create_language(language)
 
     def create_subjects(self, record, work, work_id):
         """Creates all subjects associated with the current work
@@ -291,8 +262,8 @@ class SciELOLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        BISAC_subject_code = record["bisac_code"][0][0][1]
-        keyword_subject_codes = record["primary_descriptor"].split( "; " )
+        bisac_subject_code = record["bisac_code"][0][0][1]
+        keyword_subject_codes = record["primary_descriptor"].split("; ")
 
         def create_subject(subject_type, subject_code, subject_ordinal):
             subject = {
@@ -302,24 +273,18 @@ class SciELOLoader(BookLoader):
                 "subjectOrdinal": subject_ordinal
             }
             self.thoth.create_subject(subject)
-            # logging.info(subject)
 
-        # skip this subject if the work already has a subject
-        # with that BISAC subject code
-        if any(s.subjectCode == BISAC_subject_code and s.subjectType == "BISAC" \
-            for s in work.subjects):
-            logging.info("Existing BISAC subject")
-        else:
+        # check if the work already has a subject with the BISAC subject code
+        if not any(s.subjectCode == bisac_subject_code and s.subjectType == "BISAC" for s in work.subjects):
             logging.info("New BISAC subject")
-            create_subject("BISAC", BISAC_subject_code, 1)
+            create_subject("BISAC", bisac_subject_code, 1)
 
         for subject_ordinal, keyword in enumerate(keyword_subject_codes, start=1):
-            # skip this subject if the work already has a subject
-            # with that keyword subject type/subject code combination
-            if any((s.subjectCode == keyword and s.subjectType == "KEYWORD" \
-                for s in work.subjects)):
-                logging.info("Existing keyword subject")
-                continue
-            logging.info("New keyword subject")
-            create_subject("KEYWORD", keyword, subject_ordinal)
+            # check if the work already has a subject with the keyword subject type/subject code combination
+            if not any(s.subjectCode == keyword and s.subjectType == "KEYWORD" for s in work.subjects):
+                logging.info("New keyword subject")
+                create_subject("KEYWORD", keyword, subject_ordinal)
+
+
+
 
