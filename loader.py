@@ -34,7 +34,6 @@ LOADERS = {
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
     "EDUEPB": EDUEPBLoader,
-    "SciELO": SciELOLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
 }
 

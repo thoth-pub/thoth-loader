@@ -18,12 +18,25 @@ class SciELOLoader(BookLoader):
         for record in self.data:
             work = self.get_work(record, self.imprint_id)
             try:
+                # try to find the work in Thoth
                 work_id = self.thoth.work_by_doi(work['doi']).workId
                 existing_work = self.thoth.work_by_id(work_id)
-                existing_work.update((k, v) for k, v in work.items() if v is not None)
-                self.thoth.update_work(existing_work)
+
+                # if work is found, try to update it with the new data
+                if existing_work:
+                    try:
+                        existing_work.update((k, v) for k, v in work.items() if v is not None)
+                        self.thoth.update_work(existing_work)
+                    # if the update fails, log the error and exit the import
+                    except Exception as e:
+                        logging.error(f"Failed to update work with id {work_id}, exception: {e}")
+                        return
+            # if work isn't found, create it
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
+
+
+
             logging.info('workId: %s' % work_id)
             work = self.thoth.work_by_id(work_id)
             self.create_publications(record, work, work_id)
