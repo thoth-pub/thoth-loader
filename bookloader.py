@@ -54,10 +54,16 @@ class BookLoader:
     work_statuses = {
         "Active": "ACTIVE",
         "ACTIVE": "ACTIVE",
+        "04": "ACTIVE",
         "Cancelled": "CANCELLED",
         "Forthcoming": "FORTHCOMING",
+        "02": "FORTHCOMING",
         "Out of print": "OUT_OF_PRINT",
-        "Withdrawn": "WITHDRAWN_FROM_SALE"
+        "07": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE",
+        "05": "NO_LONGER_OUR_PRODUCT",
+        "06": "OUT_OF_STOCK_INDEFINITELY",
+        "09": "UNKNOWN",
     }
     contribution_types = {
         "Author": "AUTHOR",
@@ -66,11 +72,15 @@ class BookLoader:
         "AUHTOR": "AUTHOR",
         "A01": "AUTHOR",
         "individual_author": "AUTHOR",
+        # A02 = "With or as told to"
+        "A02": "AUTHOR",
         "editor": "EDITOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
         "B01": "EDITOR",
         "B02": "EDITOR",
+        # B09 = "Series edited by"
+        "B09": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
         "organizer": "EDITOR",
@@ -83,22 +93,44 @@ class BookLoader:
         "A24": "INTRODUCTION_BY",
         "Introduction": "INTRODUCTION_BY",
         "writer of introduction": "INTRODUCTION_BY",
+        "A15": "PREFACE_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR",
         "Research By": "RESEARCH_BY",
-        "Contributions By": "CONTRIBUTIONS_BY"
+        "Contributions By": "CONTRIBUTIONS_BY",
+        # B18 = "Prepared for publication by"
+        "B18": "CONTRIBUTIONS_BY",
     }
     publication_types = {
+        "BB": "HARDBACK",
+        "BC": "PAPERBACK",
+        "B106": "PAPERBACK",
+        "B402": "HARDBACK",
         "E101": "EPUB",
+        "E105": "HTML",
         "E107": "PDF",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
     }
+
     language_codes = {
         "pt": "POR",
         "en": "ENG",
         "es": "SPA",
+
+    dimension_types = {
+        ("02", "mm"): "widthMm",
+        ("02", "cm"): "widthCm",
+        ("02", "in"): "widthIn",
+        ("01", "mm"): "heightMm",
+        ("01", "cm"): "heightCm",
+        ("01", "in"): "heightIn",
+        ("03", "mm"): "depthMm",
+        ("03", "cm"): "depthCm",
+        ("03", "in"): "depthIn",
+        ("08", "gr"): "weightG",
+        ("08", "oz"): "weightOz",
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
@@ -277,6 +309,19 @@ class BookLoader:
         except isbn_hyphenate.IsbnMalformedError:
             print(isbn)
             raise
+
+    @staticmethod
+    def sanitise_issn(issn):
+        """Return a hyphenated ISSN"""
+        if not issn:
+            return None
+        if "-" in str(issn):
+            hyphenated_issn = str(issn)
+        else:
+            hyphenated_issn = str(issn)[:4] + '-' + str(issn)[4:]
+        if not len(hyphenated_issn) == 9:
+            raise ValueError("ISSN incorrectly formatted: %s" % issn)
+        return hyphenated_issn
 
     @staticmethod
     def sanitise_url(url):
