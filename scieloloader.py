@@ -135,9 +135,12 @@ class SciELOLoader(BookLoader):
             existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
             if existing_pub:
                 publication_id = existing_pub.publicationId
+                logging.info(f"existing publication: {publication_id}")
             else:
                 publication_id = self.thoth.create_publication(publication)
+                logging.info(f"created publication: {publication_id}")
             if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
+                logging.info("existing location")
                 continue
             location = {
                 "publicationId": publication_id,
@@ -146,6 +149,7 @@ class SciELOLoader(BookLoader):
                 "locationPlatform": "SCIELO_BOOKS",
                 "canonical": "true",
             }
+            logging.info(f"created location: with publicationId {publication_id}")
             self.thoth.create_location(location)
 
     def create_contributors(self, record, work, work_id):
@@ -182,11 +186,12 @@ class SciELOLoader(BookLoader):
                 "orcid": orcid_id,
                 "website": website,
             }
-            contributor_id = self.all_contributors[contributor["fullName"]]
             if fullname not in self.all_contributors:
                 contributor_id = self.thoth.create_contributor(contributor)
+                logging.info(f"created contributor: {contributor_id}")
                 self.all_contributors[fullname] = contributor_id
             else:
+                contributor_id = self.all_contributors[contributor["fullName"]]
                 self.update_scielo_contributor(contributor, contributor_id)
             existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
             if not existing_contribution:
@@ -202,7 +207,10 @@ class SciELOLoader(BookLoader):
                     "fullName": fullname,
                 }
                 self.thoth.create_contribution(contribution)
+                logging.info(f"created contribution with contributorId: {contributor_id}")
                 highest_contribution_ordinal += 1
+            else:
+                logging.info(f"existing contribution with contributorId: {contributor_id}")
 
     def update_scielo_contributor(self, contributor, contributor_id):
         # find existing contributor in Thoth
@@ -232,7 +240,14 @@ class SciELOLoader(BookLoader):
                     combined_contributor[key] = contributor[key]
                 else:
                     combined_contributor[key] = thoth_contributor[key]
-            self.thoth.update_contributor(combined_contributor)
+            # combined contributor now contains the values from both dictionaries
+            # however, if all of these values are already in Thoth, there's no need to update
+            # so only update if combined_contributor is different from thoth_contributor
+            if combined_contributor != thoth_contributor:
+                self.thoth.update_contributor(combined_contributor)
+                logging.info(f"updated contributor: {contributor_id}")
+        else:
+            logging.info(f"existing contributor: {contributor_id}")
         return contributor
 
     def create_languages(self, record, work, work_id):
@@ -246,6 +261,7 @@ class SciELOLoader(BookLoader):
 
         # check to see if work already has this language
         if any(l.languageCode == language_code for l in work.languages):
+            logging.info("existing language")
             return
         language = {
             "workId": work_id,
@@ -254,6 +270,7 @@ class SciELOLoader(BookLoader):
             "mainLanguage": "true"
         }
         self.thoth.create_language(language)
+        logging.info(f"created language for workId: {work_id}")
 
     def create_subjects(self, record, work, work_id):
         """Creates all subjects associated with the current work
@@ -278,12 +295,16 @@ class SciELOLoader(BookLoader):
         if not any(s.subjectCode == bisac_subject_code and s.subjectType == "BISAC" for s in work.subjects):
             logging.info("New BISAC subject")
             create_subject("BISAC", bisac_subject_code, 1)
+        else:
+            logging.info("Existing BISAC subject")
 
         for subject_ordinal, keyword in enumerate(keyword_subject_codes, start=1):
             # check if the work already has a subject with the keyword subject type/subject code combination
             if not any(s.subjectCode == keyword and s.subjectType == "KEYWORD" for s in work.subjects):
                 logging.info("New keyword subject")
                 create_subject("KEYWORD", keyword, subject_ordinal)
+            else:
+                logging.info("Existing keyword subject")
 
 
 
