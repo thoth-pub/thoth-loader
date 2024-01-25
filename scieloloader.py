@@ -9,6 +9,9 @@ from thothlibrary import ThothError
 
 class SciELOLoader(BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
+    import_format = "JSON"
+    single_imprint = True
+    cache_institutions = False
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
