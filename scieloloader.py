@@ -3,6 +3,7 @@
 
 import json
 import logging
+import sys
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
@@ -30,7 +31,7 @@ class SciELOLoader(BookLoader):
                     # if update fails, log the error and exit the import
                     except ThothError as t:
                         logging.error(f"Failed to update work with id {work_id}, exception: {t}")
-                        exit(1)
+                        sys.exit(1)
             # if work isn't found, create it
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
