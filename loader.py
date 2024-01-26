@@ -20,6 +20,7 @@ from editusloader import EDITUSLoader
 from eduepbloader import EDUEPBLoader
 from scieloloader import SciELOLoader
 from ubiquityloader import UbiquityPressesLoader
+from uolloader import UOLLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -35,6 +36,7 @@ LOADERS = {
     "EDITUS": EDITUSLoader,
     "EDUEPB": EDUEPBLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
+    "UOL": UOLLoader,
 }
 
 ARGS = [

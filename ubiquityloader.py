@@ -30,7 +30,8 @@ class UbiquityPressesLoader(BookLoader):
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
                 existing_work = self.thoth.work_by_id(work_id)
-                existing_work.update((k, v) for k, v in work.items() if v is not None)
+                existing_work.update((k, v)
+                                     for k, v in work.items() if v is not None)
                 self.thoth.update_work(existing_work)
             except (IndexError, AttributeError, ThothError):
                 work_id = self.thoth.create_work(work)
@@ -173,7 +174,8 @@ class UbiquityPressesLoader(BookLoader):
         if not column or not column.strip():
             return
         contributions = re.findall('\\((.*?\\[.*?\\])\\)', column)
-        highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
+        highest_contribution_ordinal = max(
+            (c.contributionOrdinal for c in work.contributions), default=0)
         for contribution_string in contributions:
             affiliations = re.findall('\\((".*?")\\)', contribution_string)
             contribution = re.split(',', contribution_string)
@@ -205,7 +207,8 @@ class UbiquityPressesLoader(BookLoader):
                 if orcid:
                     self.all_contributors[orcid] = contributor_id
 
-            existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
+            existing_contribution = next(
+                (c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
             if existing_contribution:
                 contribution_id = existing_contribution.contributionId
             else:
@@ -223,13 +226,16 @@ class UbiquityPressesLoader(BookLoader):
                 contribution_id = self.thoth.create_contribution(contribution)
                 highest_contribution_ordinal += 1
 
-            existing_affiliations = next((c.affiliations for c in work.contributions if c.contributionId == contribution_id), [])
-            highest_affiliation_ordinal = max((a.affiliationOrdinal for a in existing_affiliations), default=0)
+            existing_affiliations = next(
+                (c.affiliations for c in work.contributions if c.contributionId == contribution_id), [])
+            highest_affiliation_ordinal = max(
+                (a.affiliationOrdinal for a in existing_affiliations), default=0)
             for affiliation_string in affiliations:
                 affiliation = re.findall('"(.*?)"', affiliation_string)
                 position = affiliation[0].strip().strip('"')
                 institution_name = affiliation[1].strip().strip('"')
-                institution_doi = self.sanitise_doi(affiliation[2].strip().strip('"'))
+                institution_doi = self.sanitise_doi(
+                    affiliation[2].strip().strip('"'))
                 ror = self.sanitise_ror(affiliation[3].strip().strip('"'))
                 country_code = affiliation[4].strip().strip('"')
                 if not institution_name or institution_name == "n/a":
@@ -265,7 +271,8 @@ class UbiquityPressesLoader(BookLoader):
                         # Avoid off-by-one errors; affiliation ordinals don't have to be consecutive
                         if "An affiliation with this ordinal number already exists" in str(e):
                             highest_affiliation_ordinal += 1
-                            affiliation.update({"affiliationOrdinal": highest_affiliation_ordinal + 1})
+                            affiliation.update(
+                                {"affiliationOrdinal": highest_affiliation_ordinal + 1})
                             self.thoth.create_affiliation(affiliation)
                     highest_affiliation_ordinal += 1
 
@@ -296,7 +303,8 @@ class UbiquityPressesLoader(BookLoader):
                 # attempt the Thoth request anyway
                 pass
 
-            existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
+            existing_pub = next(
+                (p for p in work.publications if p.publicationType == publication_type), None)
             if existing_pub:
                 publication_id = existing_pub.publicationId
             else:
@@ -351,8 +359,10 @@ class UbiquityPressesLoader(BookLoader):
             new_non_canonical_locations = []
             for location_string in locations:
                 location = re.split(',', location_string)
-                landing_page = self.sanitise_url(location[0].strip().strip('"'))
-                full_text_url = self.sanitise_url(location[1].strip().strip('"'))
+                landing_page = self.sanitise_url(
+                    location[0].strip().strip('"'))
+                full_text_url = self.sanitise_url(
+                    location[1].strip().strip('"'))
                 platform = location[2].strip().strip('"')
                 is_canonical = location[3].strip().strip('"')
 
@@ -395,15 +405,18 @@ class UbiquityPressesLoader(BookLoader):
                             "locationPlatform": existing_location.locationPlatform,
                             "canonical": "false",
                         }
-                        new_non_canonical_locations.append(replacement_location)
-                        self.thoth.delete_location({"locationId": existing_location.locationId})
+                        new_non_canonical_locations.append(
+                            replacement_location)
+                        self.thoth.delete_location(
+                            {"locationId": existing_location.locationId})
             else:
                 if not existing_pub or len(existing_pub.locations) < 1:
                     # Publication must have exactly one canonical location,
                     # but none exists yet and none are marked to be added.
                     # Change the first non-canonical location (if any) to canonical.
                     if len(new_non_canonical_locations) > 0:
-                        new_canonical_location = new_non_canonical_locations.pop(0)
+                        new_canonical_location = new_non_canonical_locations.pop(
+                            0)
                         new_canonical_location.update({"canonical": "true"})
 
             if new_canonical_location:
@@ -466,8 +479,8 @@ class UbiquityPressesLoader(BookLoader):
 
                 # skip this subject if the work already has a subject
                 # with that subject type/subject code combination
-                if any((s.subjectCode == subject_code and s.subjectType == subject_type \
-                    for s in work.subjects)):
+                if any((s.subjectCode == subject_code and s.subjectType == subject_type
+                        for s in work.subjects)):
                     continue
 
                 subject = {
@@ -490,7 +503,8 @@ class UbiquityPressesLoader(BookLoader):
         if not column or not column.strip():
             return
         relations = re.findall('\\((".*?")\\)', column)
-        highest_child_ordinal = max((r.relationOrdinal for r in relator_work.relations if r.relationType == "HAS_CHILD"), default=0)
+        highest_child_ordinal = max(
+            (r.relationOrdinal for r in relator_work.relations if r.relationType == "HAS_CHILD"), default=0)
         for relation_string in relations:
             relation = re.findall('"(.*?)"', relation_string)
             relation_title = relation[0].strip().strip('"')

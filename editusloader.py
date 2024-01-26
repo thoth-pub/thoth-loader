@@ -7,4 +7,3 @@ class EDITUSLoader(SciELOLoader):
     """EDITUS specific logic to ingest metadata from JSON into Thoth"""
     publisher_name = "EDITUS"
     publisher_url = "http://www.uesc.br/editora/"
-
