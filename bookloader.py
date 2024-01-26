@@ -118,6 +118,7 @@ class BookLoader:
         "pt": "POR",
         "en": "ENG",
         "es": "SPA",
+    }
 
     dimension_types = {
         ("02", "mm"): "widthMm",

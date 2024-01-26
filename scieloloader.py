@@ -227,20 +227,10 @@ class SciELOLoader(BookLoader):
     def update_scielo_contributor(self, contributor, contributor_id):
         # find existing contributor in Thoth
         contributor_record = self.thoth.contributor(contributor_id, True)
-        contributor_json_from_thoth = json.loads(contributor_record)
-        thoth_first_name = contributor_json_from_thoth['data']['contributor']['firstName']
-        thoth_last_name = contributor_json_from_thoth['data']['contributor']['lastName']
-        thoth_full_name = contributor_json_from_thoth['data']['contributor']['fullName']
-        thoth_orcid = contributor_json_from_thoth['data']['contributor']['orcid']
-        thoth_website = contributor_json_from_thoth['data']['contributor']['website']
-        thoth_contributor = {
-            "firstName": thoth_first_name,
-            "lastName": thoth_last_name,
-            "fullName": thoth_full_name,
-            "orcid": thoth_orcid,
-            "website": thoth_website,
-            "contributorId": contributor_id,
-        }
+        thoth_contributor = json.loads(contributor_record)['data']['contributor']
+        # remove unnecesary fields for comparison to contributor
+        del thoth_contributor['__typename']
+        del thoth_contributor['contributions']
         # add contributorId to contributor dictionary so it can be compared to thoth_contributor
         contributor["contributorId"] = contributor_id
         if contributor != thoth_contributor:
