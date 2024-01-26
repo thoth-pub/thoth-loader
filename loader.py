@@ -17,6 +17,8 @@ from whpchapterloader import WHPChapterLoader
 from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
+from eduepbloader import EDUEPBLoader
+from scieloloader import SciELOLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
 
@@ -32,6 +34,7 @@ LOADERS = {
     "UWP": UWPLoader,
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
+    "EDUEPB": EDUEPBLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
 }
@@ -97,3 +100,4 @@ if __name__ == '__main__':
     ARGUMENTS = get_arguments()
     run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url,
         ARGUMENTS.email, ARGUMENTS.password)
+

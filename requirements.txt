@@ -1,4 +1,4 @@
-thothlibrary==0.22.0
+thothlibrary==0.24.0
 pandas==2.1.1
 requests==2.31.0
 isbn-hyphenate==1.0.4
@@ -7,3 +7,4 @@ pymarc==5.1.0
 roman==4.1
 python-onix==0.0.2
 xsdata==23.8
+

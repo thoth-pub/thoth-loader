@@ -2,6 +2,7 @@
 import re
 import pandas as pd
 import isbn_hyphenate
+import json
 import pymarc
 import roman as roman
 from onix.book.v3_0.reference.strict import Onixmessage
@@ -24,8 +25,8 @@ class Deduper():  # pylint: disable=too-few-public-methods
 
 
 class BookLoader:
-    """Generic logic to ingest metadata from CSV into Thoth"""
-    allowed_formats = ["CSV", "MARCXML", "ONIX3"]
+    """Generic logic to ingest metadata from CSV, MARCXML, ONIX, or JSON into Thoth"""
+    allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
     import_format = "CSV"
     single_imprint = True
     publisher_name = None
@@ -70,6 +71,7 @@ class BookLoader:
         "AUTHOR": "AUTHOR",
         "AUHTOR": "AUTHOR",
         "A01": "AUTHOR",
+        "individual_author": "AUTHOR",
         # A02 = "With or as told to"
         "A02": "AUTHOR",
         "editor": "EDITOR",
@@ -81,7 +83,9 @@ class BookLoader:
         "B09": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
+        "organizer": "EDITOR",
         "Translator": "TRANSLATOR",
+        "translator": "TRANSLATOR",
         "Photographer": "PHOTOGRAPHER",
         "Illustrator": "ILLUSTRATOR",
         "B06": "TRANSLATOR",
@@ -109,6 +113,13 @@ class BookLoader:
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
     }
+
+    language_codes = {
+        "pt": "POR",
+        "en": "ENG",
+        "es": "SPA",
+    }
+
     dimension_types = {
         ("02", "mm"): "widthMm",
         ("02", "cm"): "widthCm",
@@ -143,6 +154,8 @@ class BookLoader:
             self.data = self.prepare_marcxml_file()
         elif self.import_format == "ONIX3":
             self.data = self.prepare_onix3_file()
+        elif self.import_format == "JSON":
+            self.data = self.prepare_json_file()
 
         try:
             self.set_publisher_and_imprint()
@@ -183,6 +196,12 @@ class BookLoader:
         parser = XmlParser()
         message = parser.parse(self.metadata_file, Onixmessage)
         return message
+
+    def prepare_json_file(self):
+        """Read JSON"""
+        with open(self.metadata_file) as raw_json:
+            prepared_json = json.load(raw_json)
+        return prepared_json
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""
@@ -337,6 +356,8 @@ class BookLoader:
             return None
         if identifier.startswith("https://{}.org/".format(domain)):
             return identifier
+        elif identifier.startswith("http://{}.org/".format(domain)):
+            return identifier.replace("http://", "https://")
         elif identifier.startswith("{}.org/".format(domain)):
             return BookLoader.sanitise_url(identifier)
         else:

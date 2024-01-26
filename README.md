@@ -11,7 +11,7 @@ pip install -r requirements.txt
 
 ## CLI Usage
 
-Available modes, depending on publisher input: `OBP` (Open Book Publishers), `punctum` (punctum books), `AM` (African Minds), `UWP` (University of Westminster Press), `WHP` (The White Horse Press)
+Available modes, depending on publisher input: `OBP` (Open Book Publishers), `punctum` (punctum books), `AM` (African Minds), `UWP` (University of Westminster Press), `WHP` (The White Horse Press), `EDITUS` (Editus), `EDUEPB` (EDUEPB)
 
 ### Live Thoth API
 ```
@@ -49,3 +49,6 @@ docker run --rm \
         --password ${password} \
         --client-url http://127.0.0.1:8000
 ```
+
+### Using the isbn_hyphenate library
+Some loaders depend on the `isbn_hyphenate` python library to add hyphens to ISBNs. The library contains a list of valid ranges for data validation, but was last updated in 2015, and new ranges have been added since then. Some newer ISBNs will cause the Thoth function `sanitise_isbn()`, which depends on `isbn_hyphenate`, to raise an `IsbnUnableToHyphenateError` exception. In order to update the `isbn_hyphenate` prefix list, follow directions at (https://github.com/TorKlingberg/isbn_hyphenate).
