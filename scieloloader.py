@@ -8,7 +8,139 @@ from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
-class SciELOChapterLoader(BookLoader, ChapterLoader):
+class SciELOShared(BookLoader):
+    """Shared logic for SciELO specific loaders"""
+    def create_contributors(self, record, work):
+        """Creates/updates all contributors associated with the current work and their contributions
+
+        record: current JSON record
+
+        work: Work from Thoth
+        """
+        highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
+        for creator in record["creators"]:
+            # sometimes JSON contains "creators" "role" information, but
+            # no "full_name". Only create a contributor if "full_name" is not null.
+            if creator[1][1]:
+                full_name_inverted = creator[1][1].split(',')
+                name = full_name_inverted[1].strip()
+                surname = full_name_inverted[0]
+                full_name = f"{name} {surname}"
+                contribution_type = self.contribution_types[creator[0][1]]
+                orcid_id = None
+                website = None
+                profile_link = creator[2][1]
+                # profile_link (link_resume in JSON) may contain either an ORCID ID or a website
+                # assign value to orcid_id or website accordingly
+                if profile_link:
+                    orcid = self.orcid_regex.search(profile_link)
+                    if orcid:
+                        orcid_id = profile_link
+                        website = None
+                    else:
+                        orcid_id = None
+                        website = profile_link
+                contributor = {
+                    "firstName": name,
+                    "lastName": surname,
+                    "fullName": full_name,
+                    "orcid": orcid_id,
+                    "website": website,
+                }
+                # determine the identifier to use (prefer ORCID ID if available)
+                identifier = orcid_id if orcid_id else full_name
+
+                # check if the contributor is not in Thoth
+                if identifier not in self.all_contributors:
+                    # if not in Thoth, create a new contributor
+                    contributor_id = self.thoth.create_contributor(contributor)
+                    logging.info(f"created contributor: {contributor_id}")
+                    # cache new contributor
+                    self.all_contributors[full_name] = contributor_id
+                    if orcid_id:
+                        self.all_contributors[orcid_id] = contributor_id
+                else:
+                    # if in Thoth, get the contributor_id and run
+                    # update_scielo_contributor to check if any values need to be updated
+                    contributor_id = self.all_contributors[identifier]
+                    self.update_scielo_contributor(contributor, contributor_id)
+
+                existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
+                if not existing_contribution:
+                    contribution = {
+                        "workId": work.workId,
+                        "contributorId": contributor_id,
+                        "contributionType": contribution_type,
+                        "mainContribution": "true",
+                        "contributionOrdinal": highest_contribution_ordinal + 1,
+                        "biography": None,
+                        "firstName": name,
+                        "lastName": surname,
+                        "fullName": full_name,
+                    }
+                    self.thoth.create_contribution(contribution)
+                    logging.info(f"created contribution with contributorId: {contributor_id}")
+                    highest_contribution_ordinal += 1
+                else:
+                    logging.info(f"existing contribution with contributorId: {contributor_id}")
+
+    def update_scielo_contributor(self, contributor, contributor_id):
+        # find existing contributor in Thoth
+        contributor_record = self.thoth.contributor(contributor_id, True)
+        thoth_contributor = json.loads(contributor_record)['data']['contributor']
+        # remove unnecesary fields for comparison to contributor
+        del thoth_contributor['__typename']
+        del thoth_contributor['contributions']
+        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
+        contributor["contributorId"] = contributor_id
+        if contributor != thoth_contributor:
+            combined_contributor = {}
+            # some contributors may have contributed to multiple books and be in the JSON multiple times
+            # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
+            for key in set(thoth_contributor) | set(contributor):
+                if contributor[key] is not None:
+                    combined_contributor[key] = contributor[key]
+                else:
+                    combined_contributor[key] = thoth_contributor[key]
+            # combined contributor now contains the values from both dictionaries
+            # however, if all of these values are already in Thoth, there's no need to update
+            # so only update if combined_contributor is different from thoth_contributor
+            if combined_contributor != thoth_contributor:
+                self.thoth.update_contributor(combined_contributor)
+                logging.info(f"updated contributor: {contributor_id}")
+        else:
+            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
+        return contributor
+
+    def create_languages(self, record, work):
+        """Creates language associated with the current work
+
+        record: current JSON record
+
+        work: Work from Thoth
+        """
+        language_code = None
+        # case for when language is in "language" field in book JSON
+        if "language" in record:
+            language_code = self.language_codes[record["language"]]
+        # case for when language is in "text_language" field in chapter JSON
+        elif "text_language" in record:
+            language_code = self.language_codes[record["text_language"]]
+
+        # check to see if work already has this language
+        if any(l.languageCode == language_code for l in work.languages):
+            logging.info("existing language")
+            return
+        language = {
+            "workId": work.workId,
+            "languageCode": language_code,
+            "languageRelation": "ORIGINAL",
+            "mainLanguage": "true"
+        }
+        self.thoth.create_language(language)
+        logging.info(f"created language for workId: {work.workId}")
+
+class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
     import_format = "JSON"
     single_imprint = True
@@ -20,8 +152,8 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
         # for record in self.data:
         relation_ordinal = 1
         for i, record in enumerate(self.data):
-            if i == 2:  # Stop after 2 iterations
-                break
+            # if i == 2:  # Stop after 2 iterations
+            #   break
             book_title = record["monograph_title"]
             book_id = self.get_book_by_title(book_title)['workId']
             work = self.get_work(record, self.imprint_id, book_id)
@@ -29,6 +161,9 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
             logging.info(work)
             chapter_id = self.thoth.create_work(work)
             logging.info(f"created workId for chapter: {chapter_id}")
+            chapter_work = self.thoth.work_by_id(chapter_id)
+            self.create_languages(record, chapter_work)
+            self.create_contributors(record, chapter_work)
             self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
             relation_ordinal += 1
             # try to find the work in Thoth
@@ -78,6 +213,7 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
         raw_doi = record["descriptive_information"] if record["descriptive_information"] else None
         if raw_doi:
             doi = self.sanitise_doi(raw_doi)
+        # TODO: figure out what to do about duplicate DOIs in JSON
 
         if record["pages"][0][1]:
             first_page = record["pages"][0][1]
@@ -122,9 +258,7 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
         }
         return work
 
-    def create_contributors
-
-class SciELOLoader(BookLoader):
+class SciELOLoader(SciELOShared, BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
     import_format = "JSON"
     single_imprint = True
@@ -268,127 +402,6 @@ class SciELOLoader(BookLoader):
             }
             logging.info(f"created location: with publicationId {publication_id}")
             self.thoth.create_location(location)
-
-    def create_contributors(self, record, work):
-        """Creates/updates all contributors associated with the current work and their contributions
-
-        record: current JSON record
-
-        work: Work from Thoth
-        """
-        highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
-        for creator in record["creators"]:
-            full_name_inverted = creator[1][1].split(',')
-            name = full_name_inverted[1].strip()
-            surname = full_name_inverted[0]
-            full_name = f"{name} {surname}"
-            contribution_type = self.contribution_types[creator[0][1]]
-            orcid_id = None
-            website = None
-            profile_link = creator[2][1]
-            # profile_link (link_resume in JSON) may contain either an ORCID ID or a website
-            # assign value to orcid_id or website accordingly
-            if profile_link:
-                orcid = self.orcid_regex.search(profile_link)
-                if orcid:
-                    orcid_id = profile_link
-                    website = None
-                else:
-                    orcid_id = None
-                    website = profile_link
-            contributor = {
-                "firstName": name,
-                "lastName": surname,
-                "fullName": full_name,
-                "orcid": orcid_id,
-                "website": website,
-            }
-            # determine the identifier to use (prefer ORCID ID if available)
-            identifier = orcid_id if orcid_id else full_name
-
-            # check if the contributor is not in Thoth
-            if identifier not in self.all_contributors:
-                # if not in Thoth, create a new contributor
-                contributor_id = self.thoth.create_contributor(contributor)
-                logging.info(f"created contributor: {contributor_id}")
-                # cache new contributor
-                self.all_contributors[full_name] = contributor_id
-                if orcid_id:
-                    self.all_contributors[orcid_id] = contributor_id
-            else:
-                # if in Thoth, get the contributor_id and run
-                # update_scielo_contributor to check if any values need to be updated
-                contributor_id = self.all_contributors[identifier]
-                self.update_scielo_contributor(contributor, contributor_id)
-
-            existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
-            if not existing_contribution:
-                contribution = {
-                    "workId": work.workId,
-                    "contributorId": contributor_id,
-                    "contributionType": contribution_type,
-                    "mainContribution": "true",
-                    "contributionOrdinal": highest_contribution_ordinal + 1,
-                    "biography": None,
-                    "firstName": name,
-                    "lastName": surname,
-                    "fullName": full_name,
-                }
-                self.thoth.create_contribution(contribution)
-                logging.info(f"created contribution with contributorId: {contributor_id}")
-                highest_contribution_ordinal += 1
-            else:
-                logging.info(f"existing contribution with contributorId: {contributor_id}")
-
-    def update_scielo_contributor(self, contributor, contributor_id):
-        # find existing contributor in Thoth
-        contributor_record = self.thoth.contributor(contributor_id, True)
-        thoth_contributor = json.loads(contributor_record)['data']['contributor']
-        # remove unnecesary fields for comparison to contributor
-        del thoth_contributor['__typename']
-        del thoth_contributor['contributions']
-        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
-        contributor["contributorId"] = contributor_id
-        if contributor != thoth_contributor:
-            combined_contributor = {}
-            # some contributors may have contributed to multiple books and be in the JSON multiple times
-            # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
-            for key in set(thoth_contributor) | set(contributor):
-                if contributor[key] is not None:
-                    combined_contributor[key] = contributor[key]
-                else:
-                    combined_contributor[key] = thoth_contributor[key]
-            # combined contributor now contains the values from both dictionaries
-            # however, if all of these values are already in Thoth, there's no need to update
-            # so only update if combined_contributor is different from thoth_contributor
-            if combined_contributor != thoth_contributor:
-                self.thoth.update_contributor(combined_contributor)
-                logging.info(f"updated contributor: {contributor_id}")
-        else:
-            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
-        return contributor
-
-    def create_languages(self, record, work):
-        """Creates language associated with the current work
-
-        record: current JSON record
-
-        work: Work from Thoth
-        """
-        language_code = self.language_codes[record["language"]]
-
-        # check to see if work already has this language
-        if any(l.languageCode == language_code for l in work.languages):
-            logging.info("existing language")
-            return
-        language = {
-            "workId": work.workId,
-            "languageCode": language_code,
-            "languageRelation": "ORIGINAL",
-            "mainLanguage": "true"
-        }
-        self.thoth.create_language(language)
-        logging.info(f"created language for workId: {work.workId}")
 
     def create_subjects(self, record, work):
         """Creates all subjects associated with the current work
