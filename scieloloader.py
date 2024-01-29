@@ -4,11 +4,11 @@
 import json
 import logging
 import sys
-# from chapterloader import ChapterLoader
+from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
-class SciELOChapterLoader(BookLoader):
+class SciELOChapterLoader(BookLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
     import_format = "JSON"
     single_imprint = True
@@ -16,10 +16,68 @@ class SciELOChapterLoader(BookLoader):
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
+        # relation_ordinal = 1
         for record in self.data:
             book_title = record["monograph_title"]
-            logging.info(f"book_title: {book_title}"
+            work_id = self.get_book_by_title(book_title)['workId']
+            work = self.get_work(record, self.imprint_id)
+            logging.info(work_id)
+            logging.info(work)
 
+    def get_work(self, record, imprint_id):
+        """Returns a dictionary with all attributes of a 'work'
+
+        record: current JSON record
+
+        imprint_id: previously obtained ID of this work's imprint
+        """
+        title = self.split_title(record["title"])
+        doi = record["descriptive_information"] if record["descriptive_information"] else None
+        first_page = None
+        last_page = None
+        page_interval = None
+        if record["pages"][0][1]:
+            first_page = int(record["pages"][0][1])
+        if record["pages"][1][1]:
+            last_page = int(record["pages"][1][1])
+        if first_page and last_page:
+            page_interval = "{}–{}".format(first_page, last_page)
+
+        work = {
+            "workType": "BOOK_CHAPTER",
+            "workStatus": "ACTIVE",
+            "fullTitle": title["fullTitle"],
+            "title": title["title"],
+            "subtitle": title["subtitle"],
+            "reference": record["_id"],
+            "edition": None,
+            "imprintId": imprint_id,
+            "doi": doi,
+            "publicationDate": None,
+            "place": None,
+            "pageCount": None,
+            "pageBreakdown": None,
+            "imageCount": None,
+            "tableCount": None,
+            "audioCount": None,
+            "videoCount": None,
+            "license": None,
+            "copyrightHolder": None,
+            "landingPage": None,
+            "lccn": None,
+            "oclc": None,
+            "shortAbstract": None,
+            "longAbstract": None,
+            "generalNote": None,
+            "bibliographyNote": None,
+            "toc": None,
+            "coverUrl": None,
+            "coverCaption": None,
+            "firstPage": first_page,
+            "lastPage": last_page,
+            "pageInterval": page_interval,
+        }
+        return work
 
 class SciELOLoader(BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
