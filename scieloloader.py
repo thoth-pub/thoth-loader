@@ -4,8 +4,21 @@
 import json
 import logging
 import sys
+# from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
+
+class SciELOChapterLoader(BookLoader):
+    """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
+    import_format = "JSON"
+    single_imprint = True
+    cache_institutions = False
+
+    def run(self):
+        """Process JSON and call Thoth to insert its data"""
+        for record in self.data:
+            book_title = record["monograph_title"]
+            logging.info(f"book_title: {book_title}"
 
 
 class SciELOLoader(BookLoader):

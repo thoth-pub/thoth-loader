@@ -18,7 +18,7 @@ from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
 from eduepbloader import EDUEPBLoader
-from scieloloader import SciELOLoader
+from eduepbchapterloader import EDUEPBChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
 
@@ -35,6 +35,7 @@ LOADERS = {
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
     "EDUEPB": EDUEPBLoader,
+    "EDUEPB-chapters": EDUEPBChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
 }
