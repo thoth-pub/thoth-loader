@@ -17,29 +17,72 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
     def run(self):
         """Process JSON and call Thoth to insert its data"""
         # relation_ordinal = 1
-        for record in self.data:
+        # for record in self.data:
+        relation_ordinal = 1
+        for i, record in enumerate(self.data):
+            if i == 2:  # Stop after 2 iterations
+                break
             book_title = record["monograph_title"]
-            work_id = self.get_book_by_title(book_title)['workId']
-            work = self.get_work(record, self.imprint_id)
-            logging.info(work_id)
+            book_id = self.get_book_by_title(book_title)['workId']
+            work = self.get_work(record, self.imprint_id, book_id)
+            # logging.info(book_id)
             logging.info(work)
+            chapter_id = self.thoth.create_work(work)
+            logging.info(f"created workId for chapter: {chapter_id}")
+            self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
+            relation_ordinal += 1
+            # try to find the work in Thoth
+            # try:
+            #     existing_work = None
+            #     chapter_work_id = self.get_chapter_by_title((work)['fullTitle'])
+            #     if chapter_work_id:
+            #         chapter_work_id = chapter_work_id['workId']
+            #         existing_work = self.thoth.work_by_id(chapter_work_id)
+            #     # if work is found, try to update it with the new data
+            #     if existing_work:
+            #         try:
+            #             existing_work.update((k, v) for k, v in work.items() if v is not None)
+            #             self.thoth.update_work(existing_work)
+            #             logging.info(f"updated workId: {work_id}")
+            #         # if update fails, log the error and exit the import
+            #         except ThothError as t:
+            #             logging.error(f"Failed to update work with id {work_id}, exception: {t}")
+            #             sys.exit(1)
+            # # if work isn't found, create it
+            # except (IndexError, AttributeError, ThothError):
+            #     work_id = self.thoth.create_work(work)
+            #     logging.info(f"created workId: {work_id}")
 
-    def get_work(self, record, imprint_id):
+    def get_work(self, record, imprint_id, book_id):
         """Returns a dictionary with all attributes of a 'work'
 
         record: current JSON record
 
         imprint_id: previously obtained ID of this work's imprint
         """
-        title = self.split_title(record["title"])
-        doi = record["descriptive_information"] if record["descriptive_information"] else None
         first_page = None
         last_page = None
         page_interval = None
+        doi = None
+
+        existing_book = self.thoth.work_by_id(book_id, True)
+        # logging.info(f"existing book: {existing_book}")
+        thoth_book_record = json.loads(existing_book)['data']['work']
+        # logging.info(f"thoth book record: {thoth_book_record}")
+        place = thoth_book_record['place']
+        page_count = thoth_book_record['pageCount']
+        cc_license = thoth_book_record['license']
+        # logging.info(f"place: {place}")
+
+        title = self.split_title(record["title"])
+        raw_doi = record["descriptive_information"] if record["descriptive_information"] else None
+        if raw_doi:
+            doi = self.sanitise_doi(raw_doi)
+
         if record["pages"][0][1]:
-            first_page = int(record["pages"][0][1])
+            first_page = record["pages"][0][1]
         if record["pages"][1][1]:
-            last_page = int(record["pages"][1][1])
+            last_page = record["pages"][1][1]
         if first_page and last_page:
             page_interval = "{}–{}".format(first_page, last_page)
 
@@ -54,14 +97,14 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": None,
-            "place": None,
-            "pageCount": None,
+            "place": place,
+            "pageCount": page_count,
             "pageBreakdown": None,
             "imageCount": None,
             "tableCount": None,
             "audioCount": None,
             "videoCount": None,
-            "license": None,
+            "license": cc_license,
             "copyrightHolder": None,
             "landingPage": None,
             "lccn": None,
@@ -78,6 +121,8 @@ class SciELOChapterLoader(BookLoader, ChapterLoader):
             "pageInterval": page_interval,
         }
         return work
+
+    def create_contributors
 
 class SciELOLoader(BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
