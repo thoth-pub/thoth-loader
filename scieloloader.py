@@ -157,22 +157,30 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
         """Process JSON and call Thoth to insert its data"""
         relation_ordinal = 1
         previous_book_title = None
-        for record in self.data:
+        for i, record in enumerate(self.data):
+            if i == 10:
+                break
             book_title = record["monograph_title"]
-            # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
-            if book_title != previous_book_title:
-                relation_ordinal = 1
-            previous_book_title = book_title
             book_id = self.get_book_by_title(book_title)['workId']
-            work = self.get_work(record, self.imprint_id, book_id)
-            chapter_id = self.thoth.create_work(work)
-            chapter_work = self.thoth.work_by_id(chapter_id)
-            self.create_languages(record, chapter_work)
-            self.create_contributors(record, chapter_work)
-            # TODO: detect duplicate chapter relations and don't create a new one
-            self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
-            relation_ordinal += 1
-            # TODO: detect duplicate chapters and don't create a new one
+            existing_book_in_thoth = self.thoth.work_by_id(book_id, True)
+            # detect duplicate chapter relations and don't create a new one
+            thoth_book_relations = json.loads(existing_book_in_thoth)['data']['work']['relations']
+            if thoth_book_relations:
+                logging.info("Work already has chapters, skipping chapter ingest")
+            else:
+                logging.info("Work doesn't have chapters, creating chapter relations")
+                work = self.get_work(record, self.imprint_id, book_id)
+                chapter_id = self.thoth.create_work(work)
+                chapter_work = self.thoth.work_by_id(chapter_id)
+                self.create_languages(record, chapter_work)
+                self.create_contributors(record, chapter_work)
+                # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
+                if book_title != previous_book_title:
+                    relation_ordinal = 1
+                previous_book_title = book_title
+                self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
+                relation_ordinal += 1
+
             # try to find the work in Thoth
             # try:
             #     existing_work = None
