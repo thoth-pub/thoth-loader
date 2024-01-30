@@ -9,7 +9,11 @@ from bookloader import BookLoader
 from thothlibrary import ThothError
 
 class SciELOShared(BookLoader):
-    """Shared logic for SciELO specific loaders"""
+    """Shared logic for SciELO book and chapter loaders"""
+    import_format = "JSON"
+    single_imprint = True
+    cache_institutions = False
+
     def create_contributors(self, record, work):
         """Creates/updates all contributors associated with the current work and their contributions
 
@@ -22,10 +26,16 @@ class SciELOShared(BookLoader):
             # sometimes JSON contains "creators" "role" information, but
             # no "full_name". Only create a contributor if "full_name" is not null.
             if creator[1][1]:
-                full_name_inverted = creator[1][1].split(',')
-                name = full_name_inverted[1].strip()
-                surname = full_name_inverted[0]
-                full_name = f"{name} {surname}"
+                # sometimes JSON "full_name" field contains an institution name,
+                # e.g. "Universidad de Granada", which doesn't contain a comma
+                # separating surname and name, e.g. "Quevedo-Blasco, Raúl"
+                if ',' in creator[1][1]:
+                    full_name_inverted = creator[1][1].split(',')
+                    name = full_name_inverted[1].strip()
+                    surname = full_name_inverted[0]
+                    full_name = f"{name} {surname}"
+                else:
+                    name = surname = full_name = creator[1][1]
                 contribution_type = self.contribution_types[creator[0][1]]
                 orcid_id = None
                 website = None
@@ -142,30 +152,27 @@ class SciELOShared(BookLoader):
 
 class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
-    import_format = "JSON"
-    single_imprint = True
-    cache_institutions = False
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-        # relation_ordinal = 1
-        # for record in self.data:
         relation_ordinal = 1
-        for i, record in enumerate(self.data):
-            # if i == 2:  # Stop after 2 iterations
-            #   break
+        previous_book_title = None
+        for record in self.data:
             book_title = record["monograph_title"]
+            # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
+            if book_title != previous_book_title:
+                relation_ordinal = 1
+            previous_book_title = book_title
             book_id = self.get_book_by_title(book_title)['workId']
             work = self.get_work(record, self.imprint_id, book_id)
-            # logging.info(book_id)
-            logging.info(work)
             chapter_id = self.thoth.create_work(work)
-            logging.info(f"created workId for chapter: {chapter_id}")
             chapter_work = self.thoth.work_by_id(chapter_id)
             self.create_languages(record, chapter_work)
             self.create_contributors(record, chapter_work)
+            # TODO: detect duplicate chapter relations and don't create a new one
             self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
             relation_ordinal += 1
+            # TODO: detect duplicate chapters and don't create a new one
             # try to find the work in Thoth
             # try:
             #     existing_work = None
@@ -198,29 +205,35 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
         first_page = None
         last_page = None
         page_interval = None
+        page_count = None
         doi = None
 
         existing_book = self.thoth.work_by_id(book_id, True)
-        # logging.info(f"existing book: {existing_book}")
         thoth_book_record = json.loads(existing_book)['data']['work']
-        # logging.info(f"thoth book record: {thoth_book_record}")
         place = thoth_book_record['place']
-        page_count = thoth_book_record['pageCount']
         cc_license = thoth_book_record['license']
-        # logging.info(f"place: {place}")
-
+        publication_date = self.sanitise_date(record["monograph_year"])
         title = self.split_title(record["title"])
         raw_doi = record["descriptive_information"] if record["descriptive_information"] else None
         if raw_doi:
             doi = self.sanitise_doi(raw_doi)
-        # TODO: figure out what to do about duplicate DOIs in JSON
-
+        if doi:
+            try:
+                self.thoth.work_by_doi(doi=doi)
+                logging.info(f"existing doi: {doi}")
+                doi = None
+            except ThothError:
+                doi = doi
         if record["pages"][0][1]:
             first_page = record["pages"][0][1]
         if record["pages"][1][1]:
             last_page = record["pages"][1][1]
         if first_page and last_page:
             page_interval = "{}–{}".format(first_page, last_page)
+            # in case we have roman numerals in the page numbers
+            # haven't found any in JSON so far, but just in case
+            if first_page.isdigit() and last_page.isdigit():
+                page_count = int(last_page) - int(first_page) + 1
 
         work = {
             "workType": "BOOK_CHAPTER",
@@ -232,7 +245,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             "edition": None,
             "imprintId": imprint_id,
             "doi": doi,
-            "publicationDate": None,
+            "publicationDate": publication_date,
             "place": place,
             "pageCount": page_count,
             "pageBreakdown": None,
@@ -260,9 +273,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
 
 class SciELOLoader(SciELOShared, BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
-    import_format = "JSON"
-    single_imprint = True
-    cache_institutions = False
+
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
