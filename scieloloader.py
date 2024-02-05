@@ -4,6 +4,7 @@
 import json
 import logging
 import sys
+import re
 from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
@@ -130,10 +131,10 @@ class SciELOShared(BookLoader):
         work: Work from Thoth
         """
         language_code = None
-        # case for when language is in "language" field in book JSON
+        # for book JSON, language is in "language" field
         if "language" in record:
             language_code = self.language_codes[record["language"]]
-        # case for when language is in "text_language" field in chapter JSON
+        # for chapter JSON, language is in "text_language" field
         elif "text_language" in record:
             language_code = self.language_codes[record["text_language"]]
 
@@ -155,53 +156,150 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-        relation_ordinal = 1
-        previous_book_title = None
-        for i, record in enumerate(self.data):
-            if i == 10:
-                break
+
+        for record in self.data:
+            logging.info("*************")
+            logging.info("*************")
+            logging.info(f"processing record : {record['title']}")
+
             book_title = record["monograph_title"]
-            book_id = self.get_book_by_title(book_title)['workId']
-            existing_book_in_thoth = self.thoth.work_by_id(book_id, True)
-            # detect duplicate chapter relations and don't create a new one
-            thoth_book_relations = json.loads(existing_book_in_thoth)['data']['work']['relations']
-            if thoth_book_relations:
-                logging.info("Work already has chapters, skipping chapter ingest")
-            else:
-                logging.info("Work doesn't have chapters, creating chapter relations")
+            # book_internal_id = record["monograph"]
+            chapter_internal_id = record["_id"]
+            book_id = self.get_book_by_title(book_title).workId
+            relation_ordinal = record["order"]
+            try:
+                chapter = self.get_chapter_by_string(chapter_internal_id)
+            except IndexError:
+                logging.info("Chapter does not exist in Thoth, creating")
+                # add new chapter to Book Work
                 work = self.get_work(record, self.imprint_id, book_id)
                 chapter_id = self.thoth.create_work(work)
                 chapter_work = self.thoth.work_by_id(chapter_id)
                 self.create_languages(record, chapter_work)
                 self.create_contributors(record, chapter_work)
-                # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
-                if book_title != previous_book_title:
-                    relation_ordinal = 1
-                previous_book_title = book_title
-                self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
-                relation_ordinal += 1
 
-            # try to find the work in Thoth
+                if relation_ordinal == "00":
+                    relation_ordinal = 1
+                else:
+                    relation_ordinal = int(relation_ordinal) + 1
+                self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
+            else:
+                logging.info("Chapter already exists, updating")
+                try:
+                    work = self.get_work(record, self.imprint_id, book_id)
+                    chapter.update((k, v) for k, v in work.items() if v is not None)
+                    chapter_id = self.thoth.update_work(chapter)
+                    logging.info(f"updated chapter: {chapter['title']}")
+                    chapter_work = self.thoth.work_by_id(chapter_id)
+                    self.create_languages(record, chapter_work)
+                    logging.info("languages updated")
+                    self.create_contributors(record, chapter_work)
+                    logging.info("contributors updated")
+                    # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
+                    # if book_title != previous_book_title:
+                    #     relation_ordinal = 1
+                    # previous_book_title = book_title
+                    # relation_ordinal += 1
+                # if update fails, log the error and exit the import
+                except ThothError as t:
+                    logging.error(f"Failed to update chapter: {chapter['title']}, exception: {t}")
+                    sys.exit(1)
+
+            logging.info("*************")
+            logging.info("*************")
+
+
+
+            # # case where there are some or all existing chapters that match a PDF URL
+            # # (which contains book Work's internal ID) in Thoth
             # try:
-            #     existing_work = None
-            #     chapter_work_id = self.get_chapter_by_title((work)['fullTitle'])
-            #     if chapter_work_id:
-            #         chapter_work_id = chapter_work_id['workId']
-            #         existing_work = self.thoth.work_by_id(chapter_work_id)
-            #     # if work is found, try to update it with the new data
-            #     if existing_work:
-            #         try:
-            #             existing_work.update((k, v) for k, v in work.items() if v is not None)
-            #             self.thoth.update_work(existing_work)
-            #             logging.info(f"updated workId: {work_id}")
-            #         # if update fails, log the error and exit the import
-            #         except ThothError as t:
-            #             logging.error(f"Failed to update work with id {work_id}, exception: {t}")
-            #             sys.exit(1)
-            # # if work isn't found, create it
-            # except (IndexError, AttributeError, ThothError):
-            #     work_id = self.thoth.create_work(work)
-            #     logging.info(f"created workId: {work_id}")
+            #     # use book_internal_id to search in Thoth for all works containing internal ID
+            #     # that are type book chapter
+            #     matching_chapters = self.get_chapters_by_string(book_internal_id)
+            #     logging.info(f"matching chapters: {matching_chapters}")
+            #     found_match = False
+            #     # iterate over the array of matching chapters
+            #     for chapter in matching_chapters:
+            #         # look in the chapter Work at the title field
+            #         # if the JSON matches an existing title, update it
+            #         if chapter.fullTitle == record["title"]:
+            #             logging.info(f"{chapter.fullTitle} is in Thoth; updating Thoth from JSON")
+            #             try:
+            #                 work = self.get_work(record, self.imprint_id, book_id)
+            #                 chapter.update((k, v) for k, v in work.items() if v is not None)
+            #                 chapter_id = self.thoth.update_work(chapter)
+            #                 logging.info(f"updated chapter: {chapter['title']}")
+            #                 chapter_work = self.thoth.work_by_id(chapter_id)
+            #                 self.create_languages(record, chapter_work)
+            #                 logging.info("languages updated")
+            #                 self.create_contributors(record, chapter_work)
+            #                 logging.info("contributors updated")
+            #                 # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
+            #                 if book_title != previous_book_title:
+            #                     relation_ordinal = 1
+            #                 previous_book_title = book_title
+            #                 relation_ordinal += 1
+            #             # if update fails, log the error and exit the import
+            #             except ThothError as t:
+            #                 logging.error(f"Failed to update chapter: {chapter['title']}, exception: {t}")
+            #                 sys.exit(1)
+            #             found_match = True
+
+            #     # Case if other Chapters were found, but not the specific Chapter
+            #     if not found_match:
+            #         logging.error(f"Some chapters found for work, but not {record['title']}; try deleting all chapters from Work in Thoth and re-running loader")
+            #         sys.exit(1)
+
+            # except (IndexError, AttributeError):
+            #     logging.info(f'No chapters found containing: {book_internal_id}, adding chapter to Work')
+
+
+
+
+
+            # if chapters_in_thoth == []:
+            #     logging.info("No chapters in Thoth with this title; creating new chapter")
+
+            # if chapters_in_thoth:
+                # logging.info(chapters_in_thoth_raw)
+
+                #for chapter in chapters_in_thoth:
+                    # logging.info(chapter.relations)
+
+
+                # try:
+                #     # try to find a book in Thoth with the same title as "monograph_title" in JSON
+                #     thoth_book_landing_page = self.get_book_by_title(book_title)['landingPage']
+                #     logging.info("found book in Thoth")
+                #     # loop through all chapters in Thoth with this name and try to find a Book Work
+                #     # with matching landingPage, which is a unique URL in SciELO shared in both records.
+                #     for chapter in chapters_in_thoth:
+                #         logging.info(f"chapter: {chapter}")
+                #         thoth_chapter_landing_page = chapter['landingPage']
+                #         if thoth_chapter_landing_page == thoth_book_landing_page:
+                #             logging.info(f"Chapter {chapter['title']} and Book {book_title} already in Thoth; attempting Chapter update from JSON")
+
+                #         # handles case where a chapter has a common name already in Thoth (e.g. "Referências"), but is a new chapter and hasn't been added to the relevant Book
+                #         elif json_landing_page not in chapters_in_thoth_raw and json_landing_page == thoth_book_landing_page:
+                #             logging.info(f"JSON landing page: {json_landing_page}")
+                #             logging.info(f"chapters_in_thoth raw: {chapters_in_thoth_raw}")
+                #             logging.info("Chapter name was found in Thoth but doesn't match any existing chapter by landingPage; creating new chapter")
+                #             work = self.get_work(record, self.imprint_id, book_id)
+                #             chapter_id = self.thoth.create_work(work)
+                #             chapter_work = self.thoth.work_by_id(chapter_id)
+                #             self.create_languages(record, chapter_work)
+                #             self.create_contributors(record, chapter_work)
+                #             # reset relation_ordinal for chapters to 1 when we get to a new book in JSON
+                #             if book_title != previous_book_title:
+                #                 relation_ordinal = 1
+                #             previous_book_title = book_title
+                #             self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
+                #             relation_ordinal += 1
+                #         else:
+                #             logging.info("Chapter name was found in Thoth, and chapter already exists by landingPage; skipping")
+                # except:
+                #     logging.info("could not find book in Thoth to associate with Chapter, exiting")
+                #     sys.exit(1)
 
     def get_work(self, record, imprint_id, book_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -220,11 +318,14 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
         thoth_book_record = json.loads(existing_book)['data']['work']
         place = thoth_book_record['place']
         cc_license = thoth_book_record['license']
+        landing_page = thoth_book_record['landingPage']
         publication_date = self.sanitise_date(record["monograph_year"])
         title = self.split_title(record["title"])
         raw_doi = record["descriptive_information"] if record["descriptive_information"] else None
         if raw_doi:
             doi = self.sanitise_doi(raw_doi)
+        # JSON has some duplicate DOIs for chapters, so check if DOI already exists in Thoth
+        # to avoid an error with create_work
         if doi:
             try:
                 self.thoth.work_by_doi(doi=doi)
@@ -263,7 +364,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             "videoCount": None,
             "license": cc_license,
             "copyrightHolder": None,
-            "landingPage": None,
+            "landingPage": landing_page,
             "lccn": None,
             "oclc": None,
             "shortAbstract": None,
@@ -278,6 +379,11 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             "pageInterval": page_interval,
         }
         return work
+
+    def get_chapter_by_string(self, string):
+        """Query Thoth to return a list of chapters in given a title"""
+        chapter = self.thoth.works(search=string, work_types = "BOOK_CHAPTER", publishers=f'"{self.publisher_id}"')
+        return chapter[0]
 
 class SciELOLoader(SciELOShared, BookLoader):
     """SciELO specific logic to ingest metadata from JSON into Thoth"""
