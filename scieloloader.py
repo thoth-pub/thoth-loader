@@ -151,6 +151,67 @@ class SciELOShared(BookLoader):
         self.thoth.create_language(language)
         logging.info(f"created language for workId: {work.workId}")
 
+    def create_publications(self, record, work):
+        """Creates PDF, EPUB, and paperback publications associated with the current work
+
+        record: current JSON record
+
+        work: Work from Thoth
+        """
+        pdf_url = record["pdf_url"]
+
+        # fields in chapter metadata
+        if record["TYPE"] == "Part":
+            books_url_regex = r"https://books\.scielo\.org/id/.{5}"
+            match = re.match(books_url_regex, pdf_url)
+            if match:
+                books_url = match.group()
+            else:
+                books_url = None
+            publications = [["PDF", None, books_url, pdf_url]]
+        # fields in book metadata
+        else :
+            books_url = record["books_url"]
+            epub_url = record["epub_url"]
+            eisbn = self.sanitise_isbn(record["eisbn"])
+            isbn = self.sanitise_isbn(record["isbn"])
+            publications = [["PDF", None, books_url, pdf_url], ["EPUB", eisbn, books_url, epub_url], ["PAPERBACK", isbn, books_url, None]]
+
+        for publication_type, isbn, landing_page, full_text in publications:
+            publication = {
+                "workId": work.workId,
+                "publicationType": publication_type,
+                "isbn": isbn,
+                "widthMm": None,
+                "widthIn": None,
+                "heightMm": None,
+                "heightIn": None,
+                "depthMm": None,
+                "depthIn": None,
+                "weightG": None,
+                "weightOz": None,
+            }
+
+            existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
+            if existing_pub:
+                publication_id = existing_pub.publicationId
+                logging.info(f"existing publication: {publication_id}")
+            else:
+                publication_id = self.thoth.create_publication(publication)
+                logging.info(f"created publication: {publication_id}")
+            if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
+                logging.info("existing location")
+                continue
+            location = {
+                "publicationId": publication_id,
+                "landingPage": landing_page,
+                "fullTextUrl": full_text,
+                "locationPlatform": "SCIELO_BOOKS",
+                "canonical": "true",
+            }
+            logging.info(f"created location: with publicationId {publication_id}")
+            self.thoth.create_location(location)
+
 class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
 
@@ -177,7 +238,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                 chapter_work = self.thoth.work_by_id(chapter_id)
                 self.create_languages(record, chapter_work)
                 self.create_contributors(record, chapter_work)
-                # TODO: create publications
+                self.create_publications(record, chapter_work)
 
                 if relation_ordinal == "00":
                     relation_ordinal = 1
@@ -187,8 +248,16 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             else:
                 logging.info("Chapter already exists, updating")
                 try:
+                    # TODO: fix error with firstPage
                     work = self.get_work(record, self.imprint_id, book_id)
+                    logging.info(f"work is {work}")
+                    logging.info(f"work items are {work.items()}")
+                    raw_munch = json.dumps(chapter)
+                    logging.info(f"raw munch is {raw_munch}")
                     chapter.update((k, v) for k, v in work.items() if v is not None)
+                    updated_raw_munch = json.dumps(chapter)
+                    logging.info(f"updated chapter is {updated_raw_munch}")
+                    # logging.info(f"munch first page is {chapter.firstPage}")
                     chapter_id = self.thoth.update_work(chapter)
                     logging.info(f"updated chapter: {chapter['title']}")
                     chapter_work = self.thoth.work_by_id(chapter_id)
@@ -196,7 +265,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                     logging.info("languages updated")
                     self.create_contributors(record, chapter_work)
                     logging.info("contributors updated")
-                    # TODO: update publications?
+                    self.create_publications(record, chapter_work)
                 except ThothError as t:
                     logging.error(f"Failed to update chapter: {chapter['title']}, exception: {t}")
                     sys.exit(1)
@@ -237,7 +306,10 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             except ThothError:
                 doi = doi
         if record["pages"][0][1]:
+            logging.info(f"first page is {record['pages'][0][1]}")
             first_page = record["pages"][0][1]
+        else:
+            logging.info(f"first page is {first_page}")
         if record["pages"][1][1]:
             last_page = record["pages"][1][1]
         if first_page and last_page:
@@ -382,54 +454,6 @@ class SciELOLoader(SciELOShared, BookLoader):
             "pageInterval": None,
         }
         return work
-
-    def create_publications(self, record, work):
-        """Creates PDF, EPUB, and paperback publications associated with the current work
-
-        record: current JSON record
-
-        work: Work from Thoth
-        """
-        books_url = record["books_url"]
-        pdf_url = record["pdf_url"]
-        epub_url = record["epub_url"]
-        eisbn = self.sanitise_isbn(record["eisbn"])
-        isbn = self.sanitise_isbn(record["isbn"])
-        publications = [["PDF", None, books_url, pdf_url], ["EPUB", eisbn, books_url, epub_url], ["PAPERBACK", isbn, books_url, None]]
-        for publication_type, isbn, landing_page, full_text in publications:
-            publication = {
-                "workId": work.workId,
-                "publicationType": publication_type,
-                "isbn": isbn,
-                "widthMm": None,
-                "widthIn": None,
-                "heightMm": None,
-                "heightIn": None,
-                "depthMm": None,
-                "depthIn": None,
-                "weightG": None,
-                "weightOz": None,
-            }
-
-            existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
-            if existing_pub:
-                publication_id = existing_pub.publicationId
-                logging.info(f"existing publication: {publication_id}")
-            else:
-                publication_id = self.thoth.create_publication(publication)
-                logging.info(f"created publication: {publication_id}")
-            if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
-                logging.info("existing location")
-                continue
-            location = {
-                "publicationId": publication_id,
-                "landingPage": landing_page,
-                "fullTextUrl": full_text,
-                "locationPlatform": "SCIELO_BOOKS",
-                "canonical": "true",
-            }
-            logging.info(f"created location: with publicationId {publication_id}")
-            self.thoth.create_location(location)
 
     def create_subjects(self, record, work):
         """Creates all subjects associated with the current work
