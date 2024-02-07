@@ -97,7 +97,7 @@ class SciELOShared(BookLoader):
                     logging.info(f"created contribution with contributorId: {contributor_id}")
                     highest_contribution_ordinal += 1
                 else:
-                    logging.info(f"existing contribution with contributorId: {contributor_id}")
+                    logging.info(f"existing contribution with contributorId: {contributor_id}, did not update")
 
     def update_scielo_contributor(self, contributor, contributor_id):
         # find existing contributor in Thoth
@@ -124,7 +124,7 @@ class SciELOShared(BookLoader):
                 self.thoth.update_contributor(combined_contributor)
                 logging.info(f"updated contributor: {contributor_id}")
         else:
-            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
+            logging.info(f"contributor data from JSON and Thoth matches, no changes needed to Thoth: {contributor_id}")
         return contributor
 
     def create_languages(self, record, work):
@@ -144,7 +144,7 @@ class SciELOShared(BookLoader):
 
         # check to see if work already has this language
         if any(l.languageCode == language_code for l in work.languages):
-            logging.info("existing language")
+            logging.info("existing language, did not update")
             return
         language = {
             "workId": work.workId,
@@ -199,12 +199,12 @@ class SciELOShared(BookLoader):
             existing_pub = next((p for p in work.publications if p.publicationType == publication_type), None)
             if existing_pub:
                 publication_id = existing_pub.publicationId
-                logging.info(f"existing publication: {publication_id}")
+                logging.info(f"existing publication: {publication_id}, did not update")
             else:
                 publication_id = self.thoth.create_publication(publication)
                 logging.info(f"created publication: {publication_id}")
             if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
-                logging.info("existing location")
+                logging.info("existing location, did not update")
                 continue
             location = {
                 "publicationId": publication_id,
@@ -213,15 +213,14 @@ class SciELOShared(BookLoader):
                 "locationPlatform": "SCIELO_BOOKS",
                 "canonical": "true",
             }
-            logging.info(f"created location: with publicationId {publication_id}")
             self.thoth.create_location(location)
+            logging.info(f"created location with publicationId {publication_id}")
 
 class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
 
     def run(self):
         """Process JSON and call Thoth to insert its data"""
-
         for record in self.data:
             logging.info("*************\n" * 4)
             logging.info(f"processing chapter: {record['title']}")
@@ -230,13 +229,16 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             chapter_internal_id = record["_id"]
             book_id = self.get_book_by_title(book_title).workId
             relation_ordinal = record["order"]
+            chapter_exists = False
             try:
                 chapter = self.get_chapter_by_string(chapter_internal_id)
-                logging.info("Chapter already exists, updating")
+                chapter_exists = True
+                logging.info("Chapter already exists, attempting to update")
                 try:
-                    work = self.get_work(record, self.imprint_id, book_id)
+                    work = self.get_work(record, self.imprint_id, book_id, chapter_exists)
                     chapter.update((k, v) for k, v in work.items() if v is not None)
-                    # handle case where firstPage and lastPage are null in JSON
+                    # handle case where firstPage, lastPage, and chapterInterval were null in JSON, and thus
+                    # weren't added to record in Thoth, creating an error with update_work
                     if 'firstPage' not in chapter:
                         chapter['firstPage'] = None
                     if 'lastPage' not in chapter:
@@ -257,8 +259,9 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                     sys.exit(1)
             except IndexError:
                 logging.info("Chapter does not exist in Thoth, creating")
+                chapter_exists = False
                 # add new chapter to Book Work
-                work = self.get_work(record, self.imprint_id, book_id)
+                work = self.get_work(record, self.imprint_id, book_id, chapter_exists)
                 chapter_id = self.thoth.create_work(work)
                 logging.info(f"created chapter: {chapter_id}")
                 chapter_work = self.thoth.work_by_id(chapter_id)
@@ -276,7 +279,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                 self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
                 logging.info("chapter relation created")
 
-    def get_work(self, record, imprint_id, book_id):
+    def get_work(self, record, imprint_id, book_id, chapter_exists):
         """Returns a dictionary with all attributes of a 'work'
 
         record: current JSON record
@@ -301,15 +304,8 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             doi = self.sanitise_doi(raw_doi)
         # JSON has some duplicate DOIs for chapters, so check if DOI already exists in Thoth
         # to avoid an error with create_work
-        # TODO: this check should only be done for creating new works, not updating existing works
-        # on existing works, it finds a "duplicate" DOI and replaces it with None
         if doi:
-            try:
-                self.thoth.work_by_doi(doi=doi)
-                logging.info(f"existing doi in Thoth: {doi}, skipping adding to work")
-                doi = None
-            except ThothError:
-                doi = doi
+            doi = self.check_duplicate_doi(doi, chapter_exists, record)
         if record["pages"][0][1]:
             first_page = record["pages"][0][1]
         if record["pages"][1][1]:
@@ -326,7 +322,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                     last_page = fromRoman(last_page.upper())
                     page_count = last_page - first_page + 1
                 except ValueError:
-                    logging.error(f"Page numbers are not integer or romain numeral: {first_page}–{last_page}")
+                    logging.error(f"Page numbers are not integer or roman numeral: {first_page}–{last_page}; skipping adding page numbers to Thoth")
                     pass
 
         work = {
@@ -366,9 +362,39 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
         return work
 
     def get_chapter_by_string(self, string):
-        """Query Thoth to return a list of chapters given a string, e.g. internal ID"""
+        """Query Thoth to return a chapter given a string, e.g. internal ID"""
         chapter = self.thoth.works(search=string, work_types = "BOOK_CHAPTER", publishers=f'"{self.publisher_id}"')
         return chapter[0]
+
+    def check_duplicate_doi(self, doi, chapter_exists, record):
+        if chapter_exists:
+            # find if current JSON chapter has a DOI in Thoth from internal ID
+            chapter_from_internal_id = self.get_chapter_by_string(record["_id"])
+            chapter_doi = chapter_from_internal_id.doi
+            work_id_from_internal_id = chapter_from_internal_id.workId
+            try:
+                # see if there's a work in Thoth with the doi from JSON
+                chapter_from_doi = self.thoth.work_by_doi(doi=doi)
+                # get existing workId associated with DOI
+                work_id_from_doi = chapter_from_doi.workId
+            except ThothError:
+                logging.info("JSON has DOI, but DOI is not present in record in Thoth. Adding DOI to Thoth record.")
+            # if the existing work in Thoth that we found by internal ID has a DOI,
+            # and its workId matches the work we found in Thoth by DOI, then it's the same work.
+            # in this case, keep current DOI.
+            if chapter_doi and work_id_from_internal_id == work_id_from_doi:
+                logging.info("existing chapter by internal ID in Thoth has DOI, and workId matches work found by DOI. Keeping current DOI.")
+            else:
+                logging.info("duplicate DOI, do not assign")
+                doi = None
+        else:
+            try:
+                self.thoth.work_by_doi(doi=doi)
+                logging.info(f"existing doi in Thoth: {doi} for different chapter, skipping adding doi to current chapter")
+                doi = None
+            except ThothError:
+                doi = doi
+        return doi
 
 class SciELOLoader(SciELOShared, BookLoader):
     """SciELO specific logic to ingest metadata from Book JSON into Thoth"""
