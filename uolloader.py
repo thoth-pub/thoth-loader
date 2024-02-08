@@ -351,6 +351,6 @@ class UOLLoader(BookLoader):
             issue = {
                 "seriesId": series_id,
                 "workId": work_id,
-                "issueOrdinal": int(issue_ordinal)
+                "issueOrdinal": issue_ordinal
             }
             self.thoth.create_issue(issue)
