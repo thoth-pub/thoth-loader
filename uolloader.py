@@ -32,6 +32,7 @@ class UOLLoader(BookLoader):
         for key, group in itertools.groupby(sorted_products, key=lambda x: x.related_system_internal_identifier()):
             grouped_products.append(list(group))
 
+        issues_to_create = []
         for product_list in grouped_products:
             if len(product_list) == 1:
                 canonical_record = product_list[0]
@@ -54,7 +55,10 @@ class UOLLoader(BookLoader):
             self.create_contributors(canonical_record, work_id)
             self.create_languages(canonical_record, work_id, default_language)
             self.create_subjects(canonical_record, work_id)
-            self.create_series(canonical_record, work_id)
+            issues_to_create.extend(
+                self.extract_issues_data(canonical_record, work_id))
+
+        self.create_all_issues(issues_to_create)
 
     def get_work(self, record):
         """Returns a dictionary with all attributes of a 'work'
@@ -307,33 +311,37 @@ class UOLLoader(BookLoader):
         process_codes(record.keywords_from_text(), "KEYWORD")
         process_codes(record.custom_codes(), "CUSTOM")
 
-    def create_series(self, record, work_id):
-        """Creates all series associated with the current work
+    def extract_issues_data(self, record, work_id):
+        """
+        Extracts required data for all issues associated with the current work,
+        creating serieses where they don't already exist (if possible)
 
         record: current onix record
 
         work_id: previously obtained ID of the current work
         """
+        issues_in_work = []
         for series_record in record.serieses():
             series_name = Onix3Record.get_series_name(series_record)
-            issue_ordinal = Onix3Record.get_issue_ordinal(series_record)
-            if not series_name or not issue_ordinal:
-                # Can't add an issue if series name or issue ordinal are unknown
-                continue
+            issn = None
+            try:
+                issn = BookLoader.sanitise_issn(
+                    Onix3Record.get_issn(series_record))
+            except ValueError as e:
+                logging.error(f"{e} ({work_id})")
+
             # TODO for first import there will be no existing UoL series;
             # if updating for recurring import, initialise self.all_series first
-            if series_name not in self.all_series:
+            if issn and issn in self.all_series:
+                series_id = self.all_series[issn]
+            elif series_name and series_name in self.all_series:
+                series_id = self.all_series[series_name]
+            elif not series_name or not issn:
+                # Can't add series without name/ISSN, so can't add issue
+                continue
+            else:
                 # Only one ISSN per series is permitted in ONIX
                 # Use for both print and digital (as Thoth requires both)
-                issn = None
-                try:
-                    issn = BookLoader.sanitise_issn(
-                        Onix3Record.get_issn(series_record))
-                except ValueError as e:
-                    logging.error(f"{e} ({work_id})")
-                if not issn:
-                    # Can't add series without ISSN, so can't add issue
-                    continue
                 series = {
                     "seriesType": "BOOK_SERIES",
                     "seriesName": series_name,
@@ -345,12 +353,39 @@ class UOLLoader(BookLoader):
                     "imprintId": self.imprint_id
                 }
                 series_id = self.thoth.create_series(series)
-                self.all_series[series_name] = series_id
-            else:
-                series_id = self.all_series[series_name]
-            issue = {
-                "seriesId": series_id,
-                "workId": work_id,
-                "issueOrdinal": issue_ordinal
-            }
-            self.thoth.create_issue(issue)
+                self.all_series[issn] = series_id
+            issue_ordinal = Onix3Record.get_issue_ordinal(series_record)
+            issues_in_work.append({
+                "work_id": work_id,
+                "series_id": series_id,
+                "issue_ordinal": issue_ordinal,
+            })
+        return issues_in_work
+
+    def create_all_issues(self, issues_to_create):
+        """
+        Creates series and issue data for all relevant works in ONIX file,
+        ensuring numbering within series is consistent
+
+        issues_to_create: list of dicts representing issues to create
+        """
+        sorted_issues = sorted(issues_to_create, key=lambda x: x['series_id'])
+        grouped_issues = []
+        for key, group in itertools.groupby(sorted_issues, key=lambda x: x['series_id']):
+            grouped_issues.append(list(group))
+
+        for issue_list in grouped_issues:
+            # Sorts issues in same series by ordinal, pushing Nones to start of list
+            # Retains series order but avoids problems with missing/clashing ordinals
+            sorted_list = sorted(issue_list, key=lambda x: (
+                x['issue_ordinal'] is not None, x['issue_ordinal']))
+            for index, issue in enumerate(sorted_list):
+                issue = {
+                    "seriesId": issue['series_id'],
+                    "workId": issue['work_id'],
+                    "issueOrdinal": index + 1,
+                }
+                try:
+                    self.thoth.create_issue(issue)
+                except Exception as e:
+                    logging.error(f"{e} ({work_id})")
