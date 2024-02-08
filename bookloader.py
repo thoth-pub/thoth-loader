@@ -109,6 +109,7 @@ class BookLoader:
         "E101": "EPUB",
         "E105": "HTML",
         "E107": "PDF",
+        "E116": "AZW3",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
