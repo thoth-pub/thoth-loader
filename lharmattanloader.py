@@ -2,7 +2,9 @@
 """Load L'Harmattan OA metadata into Thoth"""
 
 import logging
+import sys
 from bookloader import BookLoader
+from thothlibrary import ThothError
 
 class LHarmattanLoader(BookLoader):
     """L'Harmattan specific logic to ingest metadata from CSV into Thoth"""
@@ -16,9 +18,28 @@ class LHarmattanLoader(BookLoader):
     def run(self):
         """Process CSV and call Thoth to insert its data"""
         for index, row in self.data.iterrows():
-            work = self.get_work(row, self.imprint_id)
             logging.info("\n\n\n\n**********")
-            logging.info(work)
+            logging.info(f"processing book: {row['title']}")
+            work = self.get_work(row, self.imprint_id)
+            # try to find the work in Thoth
+            try:
+                work_id = self.thoth.work_by_doi(work['doi']).workId
+                existing_work = self.thoth.work_by_id(work_id)
+                # if work is found, try to update it with the new data
+                if existing_work:
+                    try:
+                        existing_work.update((k, v) for k, v in work.items() if v is not None)
+                        self.thoth.update_work(existing_work)
+                        logging.info(f"updated workId: {work_id}")
+                    # if update fails, log the error and exit the import
+                    except ThothError as t:
+                        logging.error(f"Failed to update work with id {work_id}, exception: {t}")
+                        sys.exit(1)
+            # if work isn't found, create it
+            except (IndexError, AttributeError, ThothError):
+                work_id = self.thoth.create_work(work)
+                logging.info(f"created workId: {work_id}")
+            work = self.thoth.work_by_id(work_id)
 
 
     def get_work(self, row, imprint_id):
@@ -32,7 +53,7 @@ class LHarmattanLoader(BookLoader):
 
         reference = row["uid"]
         doi = self.sanitise_doi(row["scs023_doi"])
-        # TODO: need to map L'Harmattan taxonomy types
+        # TODO: waiting for Szilvia response to map L'Harmattan taxonomy types
         # "text edition", "academic notes", "literary translation",
         # to allowed work types in Thoth: Monograph,
         # Edited Book, Textbook, Book Set
@@ -42,30 +63,28 @@ class LHarmattanLoader(BookLoader):
             work_type = self.work_types[row["taxonomy_EN"]]
         else:
             work_type = "MONOGRAPH"
-
-        # TODO: is this the right way to put in a title of a work in multiple languages?
-        # TODO: sometimes English title is blank
-        title = row["title"].strip() + " / " + row["scs023_title_en"].strip()
+        title = self.split_title(row["title"].strip())
         # date only available as year; add date to Thoth as 01-01-YYYY
         date = self.sanitise_date(row["date"])
-        # TODO: Formatting: add multiple places to Thoth separated by ;, e.g. "Budapest; Paris"?
-        place = row["scs023_place"]
-        # TODO: Formatting: separate original and translation by line break?
-        # If English scs023_summary == scs023_summary_en,
-        # do not duplicate in Thoth
-        # TODO: sometimes English summary is blank
-        long_abstract = row["scs023_summary"] +  " / " + row["scs023_summary_en"]
-        # TODO: convert "edition in English, e.g. "First edition" to 1, "Second edition" to 2, etc.
+        place = (row["scs023_place"]).replace("|", "; ")
+        long_abstract = row["scs023_summary"]
+        editions_text = {
+        "First edition": 1,
+        "Second edition": 2,
+        }
         edition = row["edition-info_EN"]
-        license = "CC BY-NC-ND 4.0"
+        if edition in editions_text:
+            edition = editions_text[edition]
+        else:
+            edition = 1
+        license = "https://creativecommons.org/licenses/by-nc-nd/4.0/"
 
         work = {
             "workType": work_type,
             "workStatus": "ACTIVE",
-            # TODO: fix fullTitle, title, subtitle
-            "fullTitle": title,
-            "title": None,
-            "subtitle": None,
+            "fullTitle": title["fullTitle"],
+            "title": title["title"],
+            "subtitle": title["subtitle"],
             "reference": reference,
             "edition": edition,
             "imprintId": imprint_id,
