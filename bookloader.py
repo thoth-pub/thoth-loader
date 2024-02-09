@@ -44,10 +44,12 @@ class BookLoader:
     work_types = {
         "Monograph": "MONOGRAPH",
         "MONOGRAPH": "MONOGRAPH",
+        "monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
         "Edited Book": "EDITED_BOOK",
         "EDITED_BOOK": "EDITED_BOOK",
+        "edited book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE"
     }
