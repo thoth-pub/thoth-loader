@@ -5,6 +5,8 @@ import isbn_hyphenate
 import json
 import pymarc
 import roman
+import logging
+import sys
 from onix.book.v3_0.reference.strict import Onixmessage
 from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
@@ -243,6 +245,25 @@ class BookLoader:
         return "true" \
             if contribution_type in self.main_contributions \
             else "false"
+
+    def get_book_by_title(self, title):
+        """Query Thoth to find a book given its title"""
+        try:
+            books = self.thoth.books(search=title.replace('"', '\\"'), publishers='"%s"' % self.publisher_id)
+            return books[0]
+        except (IndexError, AttributeError):
+            logging.error('Book not found: \'%s\'' % title)
+            sys.exit(1)
+
+    def create_chapter_relation(self, book_work_id, chapter_work_id, relation_ordinal):
+        """Create a work relation of type HAS_CHILD"""
+        work_relation = {
+            "relatorWorkId": book_work_id,
+            "relatedWorkId": chapter_work_id,
+            "relationType": "HAS_CHILD",
+            "relationOrdinal": relation_ordinal
+        }
+        return self.thoth.create_work_relation(work_relation)
 
     @staticmethod
     def get_work_contributions(work):

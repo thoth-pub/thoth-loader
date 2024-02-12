@@ -6,7 +6,6 @@ import logging
 import sys
 import re
 import roman
-from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
@@ -216,7 +215,7 @@ class SciELOLoader(BookLoader):
             self.thoth.create_location(location)
             logging.info(f"created location with publicationId {publication_id}")
 
-class SciELOChapterLoader(SciELOLoader, ChapterLoader):
+class SciELOChapterLoader(SciELOLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
 
     def run(self):
