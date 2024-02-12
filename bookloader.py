@@ -4,7 +4,7 @@ import pandas as pd
 import isbn_hyphenate
 import json
 import pymarc
-import roman as roman
+import roman
 from onix.book.v3_0.reference.strict import Onixmessage
 from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient

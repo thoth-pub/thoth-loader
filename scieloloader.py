@@ -5,12 +5,12 @@ import json
 import logging
 import sys
 import re
-import roman as roman
+import roman
 from chapterloader import ChapterLoader
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
-class SciELOShared(BookLoader):
+class SciELOLoader(BookLoader):
     """Shared logic for SciELO book and chapter loaders"""
     import_format = "JSON"
     single_imprint = True
@@ -216,7 +216,7 @@ class SciELOShared(BookLoader):
             self.thoth.create_location(location)
             logging.info(f"created location with publicationId {publication_id}")
 
-class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
+class SciELOChapterLoader(SciELOLoader, ChapterLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
 
     def run(self):
@@ -318,9 +318,9 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
             # haven't found any in JSON so far, but just in case
             else:
                 try:
-                    first_page = fromRoman(first_page.upper())
-                    last_page = fromRoman(last_page.upper())
-                    page_count = last_page - first_page + 1
+                    first_page_int = roman.fromRoman(first_page.upper())
+                    last_page_int = roman.fromRoman(last_page.upper())
+                    page_count = last_page_int - first_page_int + 1
                 except ValueError:
                     logging.error(f"Page numbers are not integer or roman numeral: {first_page}–{last_page}; skipping adding page numbers to Thoth")
                     pass
@@ -396,7 +396,7 @@ class SciELOChapterLoader(SciELOShared, BookLoader, ChapterLoader):
                 doi = doi
         return doi
 
-class SciELOLoader(SciELOShared, BookLoader):
+class SciELOBookLoader(SciELOLoader):
     """SciELO specific logic to ingest metadata from Book JSON into Thoth"""
 
     def run(self):
