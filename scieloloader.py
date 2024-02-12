@@ -9,6 +9,7 @@ import roman
 from bookloader import BookLoader
 from thothlibrary import ThothError
 
+
 class SciELOLoader(BookLoader):
     """Shared logic for SciELO book and chapter loaders"""
     import_format = "JSON"
@@ -79,7 +80,10 @@ class SciELOLoader(BookLoader):
                     contributor_id = self.all_contributors[identifier]
                     self.update_scielo_contributor(contributor, contributor_id)
 
-                existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
+                existing_contribution = next(
+                    (c for c in work.contributions if c.contributor.contributorId == contributor_id),
+                    None
+                )
                 if not existing_contribution:
                     contribution = {
                         "workId": work.workId,
@@ -110,7 +114,8 @@ class SciELOLoader(BookLoader):
         if contributor != thoth_contributor:
             combined_contributor = {}
             # some contributors may have contributed to multiple books and be in the JSON multiple times
-            # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
+            # with profile_link containing different values.
+            # Combine the dictionaries and keep the value that is not None.
             for key in set(thoth_contributor) | set(contributor):
                 if contributor[key] is not None:
                     combined_contributor[key] = contributor[key]
@@ -142,7 +147,7 @@ class SciELOLoader(BookLoader):
             language_code = self.language_codes[record["text_language"]]
 
         # check to see if work already has this language
-        if any(l.languageCode == language_code for l in work.languages):
+        if any(language.languageCode == language_code for language in work.languages):
             logging.info("existing language, did not update")
             return
         language = {
@@ -178,8 +183,11 @@ class SciELOLoader(BookLoader):
             epub_url = record["epub_url"]
             eisbn = self.sanitise_isbn(record["eisbn"])
             isbn = self.sanitise_isbn(record["isbn"])
-            publications = [["PDF", None, books_url, pdf_url], ["EPUB", eisbn, books_url, epub_url], ["PAPERBACK", isbn, books_url, None]]
-
+            publications = [
+                ["PDF", None, books_url, pdf_url],
+                ["EPUB", eisbn, books_url, epub_url],
+                ["PAPERBACK", isbn, books_url, None]
+            ]
         for publication_type, isbn, landing_page, full_text in publications:
             publication = {
                 "workId": work.workId,
@@ -202,7 +210,7 @@ class SciELOLoader(BookLoader):
             else:
                 publication_id = self.thoth.create_publication(publication)
                 logging.info(f"created publication: {publication_id}")
-            if existing_pub and any(l.locationPlatform == "SCIELO_BOOKS" for l in existing_pub.locations):
+            if existing_pub and any(location.locationPlatform == "SCIELO_BOOKS" for location in existing_pub.locations):
                 logging.info("existing location, did not update")
                 continue
             location = {
@@ -214,6 +222,7 @@ class SciELOLoader(BookLoader):
             }
             self.thoth.create_location(location)
             logging.info(f"created location with publicationId {publication_id}")
+
 
 class SciELOChapterLoader(SciELOLoader):
     """SciELO specific logic to ingest chapter metadata from JSON into Thoth"""
@@ -321,7 +330,7 @@ class SciELOChapterLoader(SciELOLoader):
                     last_page_int = roman.fromRoman(last_page.upper())
                     page_count = last_page_int - first_page_int + 1
                 except ValueError:
-                    logging.error(f"Page numbers are not integer or roman numeral: {first_page}–{last_page}; skipping adding page numbers to Thoth")
+                    logging.error(f"{first_page}–{last_page} are not integer or roman numeral; skipping adding")
                     pass
 
         work = {
@@ -362,7 +371,7 @@ class SciELOChapterLoader(SciELOLoader):
 
     def get_chapter_by_string(self, string):
         """Query Thoth to return a chapter given a string, e.g. internal ID"""
-        chapter = self.thoth.works(search=string, work_types = "BOOK_CHAPTER", publishers=f'"{self.publisher_id}"')
+        chapter = self.thoth.works(search=string, work_types="BOOK_CHAPTER", publishers=f'"{self.publisher_id}"')
         return chapter[0]
 
     def check_duplicate_doi(self, doi, chapter_exists, record):
@@ -382,18 +391,20 @@ class SciELOChapterLoader(SciELOLoader):
             # and its workId matches the work we found in Thoth by DOI, then it's the same work.
             # in this case, keep current DOI.
             if chapter_doi and work_id_from_internal_id == work_id_from_doi:
-                logging.info("existing chapter by internal ID in Thoth has DOI, and workId matches work found by DOI. Keeping current DOI.")
+                logging.info("""existing chapter by internal ID in Thoth has DOI,
+                    and workId matches work found by DOI. Keeping current DOI.""")
             else:
                 logging.info("duplicate DOI, do not assign")
                 doi = None
         else:
             try:
                 self.thoth.work_by_doi(doi=doi)
-                logging.info(f"existing doi in Thoth: {doi} for different chapter, skipping adding doi to current chapter")
+                logging.info(f"existing doi in Thoth: {doi} for different chapter, skip adding doi to current chapter")
                 doi = None
             except ThothError:
                 doi = doi
         return doi
+
 
 class SciELOBookLoader(SciELOLoader):
     """SciELO specific logic to ingest metadata from Book JSON into Thoth"""
@@ -526,7 +537,3 @@ class SciELOBookLoader(SciELOLoader):
                 create_subject("KEYWORD", keyword, subject_ordinal)
             else:
                 logging.info("Existing keyword subject")
-
-
-
-
