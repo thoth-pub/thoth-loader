@@ -379,13 +379,13 @@ class UOLLoader(BookLoader):
             # Retains series order but avoids problems with missing/clashing ordinals
             sorted_list = sorted(issue_list, key=lambda x: (
                 x['issue_ordinal'] is not None, x['issue_ordinal']))
-            for index, issue in enumerate(sorted_list):
+            for index, issue_data in enumerate(sorted_list):
                 issue = {
-                    "seriesId": issue['series_id'],
-                    "workId": issue['work_id'],
+                    "seriesId": issue_data['series_id'],
+                    "workId": issue_data['work_id'],
                     "issueOrdinal": index + 1,
                 }
                 try:
                     self.thoth.create_issue(issue)
                 except Exception as e:
-                    logging.error(f"{e} ({work_id})")
+                    logging.error(f"{e} ({issue_data['work_id']})")
