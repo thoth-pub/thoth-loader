@@ -371,7 +371,11 @@ class Onix3Record:
     def get_issue_ordinal(series: Collection):
         try:
             return int([seq.collection_sequence_number.value
-                       for seq in getattr(series, 'collection_sequence', [])][0])
+                        for seq in getattr(series, 'collection_sequence', [])][0])
+        except ValueError:
+            # Sequences may be of the format "2.1"
+            return int(float([seq.collection_sequence_number.value
+                              for seq in getattr(series, 'collection_sequence', [])][0]))
         except IndexError:
             try:
                 part_number = [element.part_number.value
