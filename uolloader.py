@@ -141,6 +141,16 @@ class UOLLoader(BookLoader):
             }
             self.thoth.create_price(price)
 
+        def create_location():
+            location = {
+                "publicationId": publication_id,
+                "landingPage": url,
+                "fullTextUrl": url,
+                "locationPlatform": "OTHER",
+                "canonical": canonical,
+            }
+            self.thoth.create_location(location)
+
         publication = {
             "workId": work_id,
             "publicationType": self.publication_types[record.product_type()],
@@ -170,6 +180,10 @@ class UOLLoader(BookLoader):
         # (representing different suppliers): remove duplicates
         for currency_code, unit_price in list(set(record.prices())):
             create_price()
+
+        for index, url in enumerate(record.full_text_urls()):
+            canonical = "true" if index == 0 else "false"
+            create_location()
 
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work
