@@ -3,8 +3,10 @@
 
 import logging
 import sys
+import json
 from bookloader import BookLoader
 from thothlibrary import ThothError
+
 
 class LHarmattanLoader(BookLoader):
     """L'Harmattan specific logic to ingest metadata from CSV into Thoth"""
@@ -41,7 +43,7 @@ class LHarmattanLoader(BookLoader):
                 logging.info(f"created workId: {work_id}")
             work = self.thoth.work_by_id(work_id)
             self.create_contributors(row, work)
-
+            self.create_publications(row, work)
 
     def get_work(self, row, imprint_id):
         """Returns a dictionary with all attributes of a 'work'
@@ -69,8 +71,8 @@ class LHarmattanLoader(BookLoader):
         place = (row["scs023_place"]).replace("|", "; ")
         long_abstract = row["scs023_summary"]
         editions_text = {
-        "First edition": 1,
-        "Second edition": 2,
+            "First edition": 1,
+            "Second edition": 2,
         }
         edition = row["edition-info_EN"]
         if edition in editions_text:
@@ -129,12 +131,10 @@ class LHarmattanLoader(BookLoader):
         translators = row["scs023_translator"] if row["scs023_translator"] else None
         contributors = row["contributor"] if row["contributor"] else None
         editors = row["scs023_editor"] if row["scs023_editor"] else None
-        orcid = row["scs023_orcid"] if row["scs023_orcid"] else None
+        orcid = self.sanitise_orcid(row["scs023_orcid"]) if row["scs023_orcid"] else None
         website = row["scs023_web"] if row["scs023_web"] else None
 
         all_creators = [[authors, "AUTHOR"], [translators, "TRANSLATOR"], [contributors, "CONTRIBUTIONS_BY"], [editors, "EDITOR"]]
-
-
         highest_contribution_ordinal = max((c.contributionOrdinal for c in work.contributions), default=0)
         creator_category_count = 0
         individual_creator_count = 0
@@ -175,7 +175,9 @@ class LHarmattanLoader(BookLoader):
                     else:
                         contributor_id = self.all_contributors[full_name]
                         logging.info(f"contributor {full_name} already in Thoth, skipping")
-                    existing_contribution = next((c for c in work.contributions if c.contributor.contributorId == contributor_id), None)
+                    existing_contribution = next(
+                        (c for c in work.contributions if c.contributor.contributorId == contributor_id),
+                        None)
                     if not existing_contribution:
                         contribution = {
                             "workId": work.workId,
@@ -189,22 +191,42 @@ class LHarmattanLoader(BookLoader):
                             "fullName": full_name,
                         }
                         self.thoth.create_contribution(contribution)
-                        logging.info(f"created contribution for {full_name}, type: {contribution_type} with contributorId: {contributor_id}")
+                        logging.info(f"created contribution for {full_name}, type: {contribution_type}")
                         highest_contribution_ordinal += 1
                     else:
-                        logging.info(f"existing contribution for {full_name}, type: {contribution_type} with contributorId: {contributor_id}")
+                        logging.info(f"existing contribution for {full_name}, type: {contribution_type}")
+        # CSV may contain ORCID and/or website for one creator, but there's no way to tell which one.
+        # so if only one creator in CSV, add orcid and website to them, else don't add
         if creator_category_count == 1 and individual_creator_count == 1:
-            logging.info(f"{full_name} is the only contributor for {work.title}")
+            logging.info(f"{full_name} is the only contributor for {work.title}, adding ORCID and website")
+            contributor["orcid"] = orcid
+            contributor["website"] = website
+            self.update_lharmattan_contributor(contributor, contributor_id)
 
-
-
-
-
-
-
-
-
-        # if only one creator, add orcid and website to them, else ignore
-        # add Contributor to Thoth attached by workId
-
-
+    def update_lharmattan_contributor(self, contributor, contributor_id):
+        # find existing contributor in Thoth
+        contributor_record = self.thoth.contributor(contributor_id, True)
+        thoth_contributor = json.loads(contributor_record)['data']['contributor']
+        # remove unnecesary fields for comparison to contributor
+        del thoth_contributor['__typename']
+        del thoth_contributor['contributions']
+        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
+        contributor["contributorId"] = contributor_id
+        if contributor != thoth_contributor:
+            combined_contributor = {}
+            # some contributors may have contributed to multiple books and be in the JSON multiple times
+            # with profile_link containing different values. Combine the dictionaries and keep the value that is not None.
+            for key in set(thoth_contributor) | set(contributor):
+                if contributor[key] is not None:
+                    combined_contributor[key] = contributor[key]
+                else:
+                    combined_contributor[key] = thoth_contributor[key]
+            # combined contributor now contains the values from both dictionaries
+            # however, if all of these values are already in Thoth, there's no need to update
+            # so only update if combined_contributor is different from thoth_contributor
+            if combined_contributor != thoth_contributor:
+                self.thoth.update_contributor(combined_contributor)
+                logging.info(f"updated contributor: {contributor_id}")
+        else:
+            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
+        return contributor
