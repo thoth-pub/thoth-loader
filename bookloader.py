@@ -34,6 +34,7 @@ class BookLoader:
     publisher_url = None
     cache_contributors = True
     cache_institutions = True
+    cache_series = False
     cache_pagination_size = 20000
     all_contributors = {}
     all_institutions = {}
@@ -179,6 +180,11 @@ class BookLoader:
                     self.all_institutions[i.institutionName] = i.institutionId
                     if i.ror:
                         self.all_institutions[i.ror] = i.institutionId
+        if self.cache_series:
+            # create cache of all existing series using pagination
+            for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
+                for series in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
+                    self.all_series[series.seriesName] = series.seriesId
 
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
