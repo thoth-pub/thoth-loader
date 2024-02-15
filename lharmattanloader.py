@@ -128,12 +128,12 @@ class LHarmattanLoader(BookLoader):
 
         work: Work from Thoth
         """
-        authors = row["scs023_author"] if row["scs023_author"] else None
-        translators = row["scs023_translator"] if row["scs023_translator"] else None
-        contributors = row["contributor"] if row["contributor"] else None
-        editors = row["scs023_editor"] if row["scs023_editor"] else None
-        orcid = self.sanitise_orcid(row["scs023_orcid"]) if row["scs023_orcid"] else None
-        website = row["scs023_web"] if row["scs023_web"] else None
+        authors = row.get("scs023_author")
+        translators = row.get("scs023_translator")
+        contributors = row.get("contributor")
+        editors = row.get("scs023_editor")
+        orcid = self.sanitise_orcid(row.get("scs023_orcid"))
+        website = row.get("scs023_web")
 
         all_creators = [
             [authors, "AUTHOR"], [translators, "TRANSLATOR"], [contributors, "CONTRIBUTIONS_BY"], [editors, "EDITOR"]
@@ -204,36 +204,7 @@ class LHarmattanLoader(BookLoader):
             logging.info(f"{full_name} is the only contributor for {work.title}, adding ORCID and website")
             contributor["orcid"] = orcid
             contributor["website"] = website
-            self.update_lharmattan_contributor(contributor, contributor_id)
-
-    def update_lharmattan_contributor(self, contributor, contributor_id):
-        # find existing contributor in Thoth
-        contributor_record = self.thoth.contributor(contributor_id, True)
-        thoth_contributor = json.loads(contributor_record)['data']['contributor']
-        # remove unnecesary fields for comparison to contributor
-        del thoth_contributor['__typename']
-        del thoth_contributor['contributions']
-        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
-        contributor["contributorId"] = contributor_id
-        if contributor != thoth_contributor:
-            combined_contributor = {}
-            # some contributors may have contributed to multiple books and be in the JSON multiple times
-            # with profile_link containing different values.
-            # Combine the dictionaries and keep the value that is not None.
-            for key in set(thoth_contributor) | set(contributor):
-                if contributor[key] is not None:
-                    combined_contributor[key] = contributor[key]
-                else:
-                    combined_contributor[key] = thoth_contributor[key]
-            # combined contributor now contains the values from both dictionaries
-            # however, if all of these values are already in Thoth, there's no need to update
-            # so only update if combined_contributor is different from thoth_contributor
-            if combined_contributor != thoth_contributor:
-                self.thoth.update_contributor(combined_contributor)
-                logging.info(f"updated contributor: {contributor_id}")
-        else:
-            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
-        return contributor
+            self.check_update_contributor(contributor, contributor_id)
 
     def create_publications(self, row, work):
         """Creates PDF and paperback publications associated with the current work
@@ -272,15 +243,14 @@ class LHarmattanLoader(BookLoader):
             else:
                 publication_id = self.thoth.create_publication(publication)
                 logging.info(f"created {publication_type} publication: {publication_id}")
-            # TODO: change locationPlatform once added to Thoth
             if existing_pub and any(location.locationPlatform == "OTHER" for location in existing_pub.locations):
                 logging.info("existing location")
                 continue
             location = {
                 "publicationId": publication_id,
                 "landingPage": landing_page,
-                "fullTextUrl": landing_page,  # TODO: temp fix, change when fullTextUrl is available
-                "locationPlatform": "OTHER",  # TODO: change locationPlatform once added to Thoth
+                "fullTextUrl": landing_page,  # avoids Thoth error in testing, change when fullTextUrl is available
+                "locationPlatform": "OTHER",
                 "canonical": "true",
             }
             self.thoth.create_location(location)
@@ -403,5 +373,3 @@ class LHarmattanLoader(BookLoader):
                 logging.info(f"New keyword {keyword} added as Subject")
             else:
                 logging.info(f"Existing keyword {keyword} associated with Work")
-
-
