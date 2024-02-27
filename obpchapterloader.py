@@ -111,7 +111,7 @@ class ObpChapterLoader(ChapterLoader):
                 language = {
                     "workId": work_id,
                     "languageCode": self.data.at[row, f"language_code_{index}"],
-                    "languageRelation": self.data.at[row, f"language_relation_{index}"].upper(),
+                    "languageRelation": self.data.at[row, f"language_relation_{index}"].replace(" ", "_").upper(),
                     "mainLanguage": "true" if self.data.at[row, f"main_language_{index}"] == "Yes" else "false",
                 }
                 language_id = self.thoth.create_language(language)
