@@ -3,7 +3,6 @@
 
 import logging
 import sys
-import json
 import requests
 from bookloader import BookLoader
 from thothlibrary import ThothError
@@ -17,15 +16,13 @@ class LHarmattanLoader(BookLoader):
     publisher_name = "L'Harmattan Open Access"
     publisher_shortname = "L'Harmattan"
     publisher_url = "https://openaccess.hu"
-    # set appropriate separator for CSV; default is comma
-    separation = ";"
 
     def run(self):
         """Process CSV and call Thoth to insert its data"""
         for index, row in self.data.iterrows():
             logging.info("\n\n\n\n**********")
             logging.info(f"processing book {index + 1}: {row['title']}")
-            work = self.get_work(row, self.imprint_id)
+            work, landing_page = self.get_work(row, self.imprint_id)
             # try to find the work in Thoth
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -46,7 +43,7 @@ class LHarmattanLoader(BookLoader):
                 logging.info(f"created work with workId: {work_id}")
             work = self.thoth.work_by_id(work_id)
             self.create_contributors(row, work)
-            self.create_publications(row, work)
+            self.create_publications(row, work, landing_page)
             self.create_languages(row, work)
             self.create_series(row, work)
             self.create_subjects(row, work)
@@ -61,7 +58,7 @@ class LHarmattanLoader(BookLoader):
         reference = row["uid"]
         doi = self.sanitise_doi(row["scs023_doi"])
         # resolve DOI to obtain landing page
-        response = requests.get(row["scs023_doi"])
+        response = requests.head(row["scs023_doi"], allow_redirects=True)
         landing_page = response.url
         work_type = row["taxonomy_EN"]
         if work_type in self.work_types:
@@ -119,7 +116,7 @@ class LHarmattanLoader(BookLoader):
             "lastPage": None,
             "pageInterval": None,
         }
-        return work
+        return work, landing_page
 
     def create_contributors(self, row, work):
         """Creates/updates all contributors associated with the current work and their contributions
@@ -149,18 +146,24 @@ class LHarmattanLoader(BookLoader):
                 for creator in creators_array:
                     individual_creator_count += 1
                     # sanitise names for correct Thoth formatting
-                    split_creator = creator.split()
-                    # case for names with middle initial, e.g. "K. Németh András"
-                    if len(split_creator) == 3:
-                        name = " ".join([split_creator[2], split_creator[0]])
-                        surname = split_creator[1]
-                        full_name = " ".join([split_creator[2], split_creator[0], split_creator[1]])
-                    elif len(split_creator) == 2:
-                        name = split_creator[1]
-                        surname = split_creator[0]
-                        full_name = " ".join(reversed(split_creator))
+                    # most names are separated by comma, e.g. "Varga, Zsuzsanna"
+                    if "," in creator:
+                        surname, name = creator.split(', ')
+                        full_name = f"{name} {surname}"
+                    # a few names are not comma-separated, e.g. "Monok István"
                     else:
-                        name = surname = full_name = creator
+                        split_creator = creator.split()
+                        # case for non-comma separated names with middle initial
+                        if len(split_creator) == 3:
+                            name = " ".join([split_creator[2], split_creator[0]])
+                            surname = split_creator[1]
+                            full_name = " ".join([split_creator[2], split_creator[0], split_creator[1]])
+                        elif len(split_creator) == 2:
+                            name = split_creator[1]
+                            surname = split_creator[0]
+                            full_name = " ".join(reversed(split_creator))
+                        else:
+                            name = surname = full_name = creator
                     contributor = {
                         "firstName": name,
                         "lastName": surname,
@@ -197,16 +200,16 @@ class LHarmattanLoader(BookLoader):
                         highest_contribution_ordinal += 1
                     else:
                         logging.info(f"existing contribution for {full_name}, type: {contribution_type}")
-        # CSV may contain ORCID and/or website that corresponds to a creator, but there's no way to tell which
-        # when there are multiple creators
-        # if only one creator in CSV, add orcid and website to them, else don't add
+        # CSV may contain ORCID and/or website that corresponds to a creator,
+        # but there's no way to tell who when there are multiple creators
+        # if there is only one creator in CSV, add orcid and website to them, else don't add
         if creator_category_count == 1 and individual_creator_count == 1:
             logging.info(f"{full_name} is the only contributor for {work.title}, adding ORCID and website")
             contributor["orcid"] = orcid
             contributor["website"] = website
             self.check_update_contributor(contributor, contributor_id)
 
-    def create_publications(self, row, work):
+    def create_publications(self, row, work, pdf_landing_page):
         """Creates PDF and paperback publications associated with the current work
 
         row: current CSV record
@@ -215,11 +218,13 @@ class LHarmattanLoader(BookLoader):
         """
         isbn = self.sanitise_isbn(row["scs023_isbn"].strip())
         print_landing_page = row["scs023_printed_version"]
-        pdf_landing_page = row["scs023_doi"]
+        pdf_full_text = row["fulltext_repository"]
 
-        publications = [
-            ["PDF", None, pdf_landing_page],
-            ["PAPERBACK", isbn, print_landing_page]]
+        publications = [["PDF", None, pdf_landing_page]]
+        # some rows don't have landing page for print
+        # only create a print Publication in Thoth if print_landing_page exists
+        if print_landing_page:
+            publications.append(["PAPERBACK", isbn, print_landing_page])
 
         for publication_type, isbn, landing_page in publications:
             publication = {
@@ -243,14 +248,15 @@ class LHarmattanLoader(BookLoader):
             else:
                 publication_id = self.thoth.create_publication(publication)
                 logging.info(f"created {publication_type} publication: {publication_id}")
-            if existing_pub and any(location.locationPlatform == "OTHER" for location in existing_pub.locations):
+            if (existing_pub and
+                    any(location.locationPlatform == "PUBLISHER_WEBSITE" for location in existing_pub.locations)):
                 logging.info("existing location")
                 continue
             location = {
                 "publicationId": publication_id,
                 "landingPage": landing_page,
-                "fullTextUrl": landing_page,  # avoids Thoth error in testing, change when fullTextUrl is available
-                "locationPlatform": "OTHER",
+                "fullTextUrl": pdf_full_text if publication_type == "PDF" else None,
+                "locationPlatform": "PUBLISHER_WEBSITE",
                 "canonical": "true",
             }
             self.thoth.create_location(location)
