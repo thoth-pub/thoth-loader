@@ -18,9 +18,9 @@ from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
 from eduepbloader import EDUEPBLoader
-from scieloloader import SciELOLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
+from lharmattanloader import LHarmattanLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -37,6 +37,7 @@ LOADERS = {
     "EDUEPB": EDUEPBLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
+    "LHarmattan": LHarmattanLoader
 }
 
 ARGS = [
