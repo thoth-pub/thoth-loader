@@ -53,7 +53,8 @@ class BookLoader:
         "EDITED_BOOK": "EDITED_BOOK",
         "edited book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
-        "Journal": "JOURNAL_ISSUE"
+        "Journal": "JOURNAL_ISSUE",
+        "textbook": "TEXTBOOK"
     }
     work_statuses = {
         "Active": "ACTIVE",

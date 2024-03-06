@@ -60,10 +60,9 @@ class LHarmattanLoader(BookLoader):
         # resolve DOI to obtain landing page
         response = requests.head(row["scs023_doi"], allow_redirects=True)
         landing_page = response.url
-        work_type = row["taxonomy_EN"]
+        work_type = row["taxonomy_Thoth"]
         if work_type in self.work_types:
-            work_type = self.work_types[row["taxonomy_EN"]]
-        # CSV work types "text edition", "academic notes", "literary translation" currently assigned to Monograph
+            work_type = self.work_types[row["taxonomy_Thoth"]]
         else:
             work_type = "MONOGRAPH"
         title = self.split_title(row["title"].strip())
