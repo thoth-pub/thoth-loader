@@ -4,7 +4,9 @@ import pandas as pd
 import isbn_hyphenate
 import json
 import pymarc
-import roman as roman
+import roman
+import logging
+import sys
 from onix.book.v3_0.reference.strict import Onixmessage
 from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
@@ -34,10 +36,13 @@ class BookLoader:
     publisher_url = None
     cache_contributors = True
     cache_institutions = True
+    cache_series = False
+    cache_issues = False
     cache_pagination_size = 20000
     all_contributors = {}
     all_institutions = {}
     all_series = {}
+    all_issues = {}
     encoding = "utf-8"
     header = 0
     separation = ","
@@ -179,6 +184,18 @@ class BookLoader:
                     if i.ror:
                         self.all_institutions[i.ror] = i.institutionId
 
+        if self.cache_series:
+            # create cache of all existing series using pagination
+            for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
+                for s in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
+                    self.all_series[s.seriesName] = s.seriesId
+
+        if self.cache_issues:
+            # create cache of all existing issues using pagination
+            for offset in range(0, self.thoth.issue_count(), self.cache_pagination_size):
+                for issue in self.thoth.issues(limit=self.cache_pagination_size, offset=offset):
+                    self.all_issues[issue.work.workId] = issue.issueId
+
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
         frame = pd.read_csv(self.metadata_file, encoding=self.encoding,
@@ -244,6 +261,25 @@ class BookLoader:
         return "true" \
             if contribution_type in self.main_contributions \
             else "false"
+
+    def get_book_by_title(self, title):
+        """Query Thoth to find a book given its title"""
+        try:
+            books = self.thoth.books(search=title.replace('"', '\\"'), publishers='"%s"' % self.publisher_id)
+            return books[0]
+        except (IndexError, AttributeError):
+            logging.error('Book not found: \'%s\'' % title)
+            sys.exit(1)
+
+    def create_chapter_relation(self, book_work_id, chapter_work_id, relation_ordinal):
+        """Create a work relation of type HAS_CHILD"""
+        work_relation = {
+            "relatorWorkId": book_work_id,
+            "relatedWorkId": chapter_work_id,
+            "relationType": "HAS_CHILD",
+            "relationOrdinal": relation_ordinal
+        }
+        return self.thoth.create_work_relation(work_relation)
 
     @staticmethod
     def get_work_contributions(work):
