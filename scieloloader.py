@@ -15,6 +15,8 @@ class SciELOLoader(BookLoader):
     import_format = "JSON"
     single_imprint = True
     cache_institutions = False
+    cache_series = True
+    cache_issues = True
 
     def create_contributors(self, record, work):
         """Creates/updates all contributors associated with the current work and their contributions
@@ -28,10 +30,11 @@ class SciELOLoader(BookLoader):
             orcid_id = None
             website = None
 
-            # sometimes JSON contains "creators" "role" information, but
+            # creator JSON structure: [["role", value], ["full_name", value], ["link_resume", value]]
+            # sometimes JSON contains creator "role" information, but
             # no "full_name". Only create a contributor if "full_name" is not null.
             if creator[1][1]:
-                # JSON "full_name" generally contains a comma separating surname and name
+                # JSON "full_name" most commonly contains a comma separating surname and name
                 # e.g. "Quevedo-Blasco, Raúl"
                 if ',' in creator[1][1]:
                     full_name_inverted = creator[1][1].split(',')
@@ -39,13 +42,13 @@ class SciELOLoader(BookLoader):
                     surname = full_name_inverted[0]
                     full_name = f"{name} {surname}"
                 # sometimes JSON "full_name" field contains an institution name,
-                # e.g. "Universidad de Granada". In this case, name, surname, and full_name
-                # are all assigned the institution name.
+                # e.g. "Universidad de Granada". In this case, institution name is assigned to name, surname, and full_name
+                # which are all required fields.
                 else:
                     name = surname = full_name = creator[1][1]
                 contribution_type = self.contribution_types[creator[0][1]]
                 profile_link = creator[2][1]
-                # profile_link (link_resume in JSON) may contain either an ORCID ID or a website
+                # profile_link (link_resume in JSON) may contain either an ORCID or a profile website
                 # assign value to orcid_id or website accordingly
                 if profile_link:
                     orcid = self.orcid_regex.search(profile_link)
@@ -62,20 +65,21 @@ class SciELOLoader(BookLoader):
                     "orcid": orcid_id,
                     "website": website,
                 }
-                # determine the identifier to use (prefer ORCID ID if available)
+                # determine the identifier to use (prefer ORCID if available)
+                # to check if contributor is already in Thoth
                 identifier = orcid_id if orcid_id else full_name
 
-                # check if the contributor is not in Thoth
+                # check if the contributor is in Thoth
                 if identifier not in self.all_contributors:
                     # if not in Thoth, create a new contributor
                     contributor_id = self.thoth.create_contributor(contributor)
                     logging.info(f"created contributor: {contributor_id}")
-                    # cache new contributor
+                    # add new contributor to all_contributors cache
                     self.all_contributors[full_name] = contributor_id
                     if orcid_id:
                         self.all_contributors[orcid_id] = contributor_id
                 else:
-                    # if in Thoth, get the contributor_id and run
+                    # if contributor is in Thoth, get the contributor_id and run
                     # update_scielo_contributor to check if any values need to be updated
                     contributor_id = self.all_contributors[identifier]
                     self.update_scielo_contributor(contributor, contributor_id)
@@ -128,7 +132,7 @@ class SciELOLoader(BookLoader):
                 self.thoth.update_contributor(combined_contributor)
                 logging.info(f"updated contributor: {contributor_id}")
         else:
-            logging.info(f"contributor data from JSON and Thoth matches, no changes needed to Thoth: {contributor_id}")
+            logging.info(f"contributor data from JSON and Thoth matches, no changes needed to Thoth for contributorID {contributor_id}")
         return contributor
 
     def create_languages(self, record, work):
@@ -146,7 +150,7 @@ class SciELOLoader(BookLoader):
         elif "text_language" in record:
             language_code = self.language_codes[record["text_language"]]
 
-        # check to see if work already has this language
+        # check to see if Work already has this language
         if any(language.languageCode == language_code for language in work.languages):
             logging.info("existing language, did not update")
             return
@@ -288,7 +292,7 @@ class SciELOChapterLoader(SciELOLoader):
                 logging.info("chapter relation created")
 
     def get_work(self, record, imprint_id, book_id, chapter_exists):
-        """Returns a dictionary with all attributes of a 'work'
+        """Returns a dictionary with all attributes of a chapter 'work'
 
         record: current JSON record
 
@@ -322,6 +326,9 @@ class SciELOChapterLoader(SciELOLoader):
             page_interval = "{}–{}".format(first_page, last_page)
             if first_page.isdigit() and last_page.isdigit():
                 page_count = int(last_page) - int(first_page) + 1
+                # case for JSON with typos where last_page - first_page equals a negative number
+                if page_count < 0:
+                    page_count = None
             # logic in case we have roman numerals in the page numbers
             # haven't found any in JSON so far, but just in case
             else:
@@ -440,9 +447,10 @@ class SciELOBookLoader(SciELOLoader):
             self.create_contributors(record, work)
             self.create_languages(record, work)
             self.create_subjects(record, work)
+            self.create_series(record, self.imprint_id, work_id)
 
     def get_work(self, record, imprint_id):
-        """Returns a dictionary with all attributes of a 'work'
+        """Returns a dictionary with all attributes of a book 'work'
 
         record: current JSON record
 
@@ -537,3 +545,50 @@ class SciELOBookLoader(SciELOLoader):
                 create_subject("KEYWORD", keyword, subject_ordinal)
             else:
                 logging.info("Existing keyword subject")
+
+    def create_series(self, record, imprint_id, work_id):
+        """Creates series associated with the current work
+
+        record: current JSON record
+
+        work_id: previously obtained ID of the current work
+        """
+        series = None
+        series_name = record["serie"][0][1]
+        issue_ordinal = int(record["serie"][2][1]) if record["serie"][2][1] else None
+        issn_digital = record["serie"][3][1]
+        series_type = "BOOK_SERIES"
+        collection_title = record["collection"][2][1]
+        # series title can be stored in either "serie" or "collection" in JSON
+        # only "serie" type series sometimes contain ISSN
+        if series_name or collection_title:
+            series = {
+                "imprintId": imprint_id,
+                "seriesType": series_type,
+                "seriesName": series_name if series_name else collection_title,
+                "issnPrint": None,
+                "issnDigital": issn_digital if series_name else None,
+                "seriesUrl": None,
+                "seriesDescription": None,
+                "seriesCfpUrl": None
+            }
+        if series:
+            if series["seriesName"] not in self.all_series:
+                series_id = self.thoth.create_series(series)
+                logging.info(f"Series {series['seriesName']} created")
+                self.all_series[series["seriesName"]] = series_id
+            else:
+                series_id = self.all_series[series["seriesName"]]
+                logging.info(f"Series {series['seriesName']} already exists")
+            series = self.thoth.series(series_id)
+            highest_issue_ordinal = max((issue.issueOrdinal for issue in series.issues), default=0)
+            issue = {
+                "seriesId": series_id,
+                "workId": work_id,
+                "issueOrdinal": int(issue_ordinal) if issue_ordinal else highest_issue_ordinal + 1
+                }
+            if issue["workId"] not in self.all_issues:
+                issue_id = self.thoth.create_issue(issue)
+                logging.info(f"issue with issueId {issue_id} created in Thoth")
+            else:
+                logging.info(f"issue with work.workId {issue['workId']} already in Thoth, skipping")
