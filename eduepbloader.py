@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Load EDUEPB metadata into Thoth"""
 
-from scieloloader import SciELOLoader
+from scieloloader import SciELOBookLoader
 
-class EDUEPBLoader(SciELOLoader):
-    """EDUEPB specific logic to ingest metadata from JSON into Thoth"""
+
+class EDUEPBLoader(SciELOBookLoader):
+    """EDUEPB specific logic to ingest book metadata from JSON into Thoth"""
     publisher_name = "EDUEPB"
     publisher_url = "https://books.scielo.org/eduepb/"
-
