@@ -370,10 +370,21 @@ class Onix3Record:
     @staticmethod
     def get_issue_ordinal(series: Collection):
         try:
-            return [seq.collection_sequence_number.value
-                    for seq in getattr(series, 'collection_sequence', [])][0]
+            return int([seq.collection_sequence_number.value
+                        for seq in getattr(series, 'collection_sequence', [])][0])
+        except ValueError:
+            # Sequences may be of the format "2.1"
+            return int(float([seq.collection_sequence_number.value
+                              for seq in getattr(series, 'collection_sequence', [])][0]))
         except IndexError:
-            return None
+            try:
+                part_number = [element.part_number.value
+                               for detail in series.title_detail
+                               for element in detail.title_element
+                               if element.part_number is not None][0]
+                return int(re.findall(r'\d+', part_number)[0])
+            except IndexError:
+                return None
 
     @staticmethod
     def get_title_and_subtitle(element: TitleElement):
