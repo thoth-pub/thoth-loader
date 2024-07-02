@@ -105,6 +105,8 @@ class BookLoader:
         "Contributions By": "CONTRIBUTIONS_BY",
         # B18 = "Prepared for publication by"
         "B18": "CONTRIBUTIONS_BY",
+        "collaborator": "CONTRIBUTIONS_BY",
+        "other": "CONTRIBUTIONS_BY",
     }
     publication_types = {
         "BB": "HARDBACK",
@@ -266,7 +268,12 @@ class BookLoader:
         """Query Thoth to find a book given its title"""
         try:
             books = self.thoth.books(search=title.replace('"', '\\"'), publishers='"%s"' % self.publisher_id)
-            return books[0]
+            # Occasionally a search may return multiple matches, e.g. if one book
+            # mentions the title of another in its abstract
+            if len(books) > 1:
+                return [n for n in books if n.fullTitle == title][0]
+            else:
+                return books[0]
         except (IndexError, AttributeError):
             logging.error('Book not found: \'%s\'' % title)
             sys.exit(1)
@@ -341,6 +348,8 @@ class BookLoader:
                     raise isbn_hyphenate.IsbnMalformedError
                 else:
                     return str(isbn)
+            elif not len(str(isbn)) == 13:
+                raise isbn_hyphenate.IsbnMalformedError
             return isbn_hyphenate.hyphenate(str(int(isbn)))
         except ValueError:
             return None
