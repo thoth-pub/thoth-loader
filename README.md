@@ -11,7 +11,7 @@ pip install -r requirements.txt
 
 ## CLI Usage
 
-Available modes, depending on publisher input: `OBP` (Open Book Publishers), `punctum` (punctum books), `AM` (African Minds), `UWP` (University of Westminster Press), `WHP` (The White Horse Press), `EDITUS` (Editus), `EDUEPB` (EDUEPB)
+Available modes, depending on publisher input: `OBP` (Open Book Publishers), `punctum` (punctum books), `AM` (African Minds), `UWP` (University of Westminster Press), `WHP` (The White Horse Press), `EDITUS` (Editus), `EDUEPB` (EDUEPB), `Leuven` (Leuven University Press)
 
 ### Live Thoth API
 ```

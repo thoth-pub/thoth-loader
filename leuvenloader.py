@@ -16,48 +16,24 @@ class LeuvenLoader(BookLoader):
     publisher_shortname = None
     publisher_url = "https://lup.be/"
     cache_institutions = True
+    cache_series = True
 
     def run(self):
         """Process ONIX and call Thoth to insert its data"""
         default_language = self.data.header.default_language_of_text.value.value.upper()
-        # Default currency is also supplied, but no records in dataset have price amount without currency
-        # default_currency = self.data.header.default_currency_code.value.value
-        # there's one publication per ONIX product, all related using a common ID within <RelatedWork>.
-        # sort all related products into their own list: [[product, product], [product, product]]
-        products = [Onix3Record(product)
-                    for product in self.data.no_product_or_product]
-        sorted_products = sorted(
-            products, key=lambda x: x.related_system_internal_identifier())
-        grouped_products = []
-        for key, group in itertools.groupby(sorted_products, key=lambda x: x.related_system_internal_identifier()):
-            grouped_products.append(list(group))
-
         issues_to_create = []
-        for product_list in grouped_products:
-            if len(product_list) == 1:
-                canonical_record = product_list[0]
-            else:
-                # Where a PDF record is present, it's usually the most comprehensive
-                # Otherwise, no consistent pattern/differences are minor, so choose first record
-                # (Almost all fields are replicated across records in a group; occasionally
-                # DOI/licence/landing page are missing from some, or page counts/dates differ slightly)
-                try:
-                    canonical_record = [record for record in product_list
-                                        if self.publication_types[record.product_type()] == "PDF"][0]
-                except IndexError:
-                    canonical_record = product_list[0]
-
-            work = self.get_work(canonical_record)
+        for product in self.data.no_product_or_product:
+            record = Onix3Record(product)
+            work = self.get_work(record)
             work_id = self.thoth.create_work(work)
             logging.info('workId: %s' % work_id)
-            for record in product_list:
-                self.create_publications(record, work_id)
-            self.create_contributors(canonical_record, work_id)
-            self.create_languages(canonical_record, work_id, default_language)
-            self.create_subjects(canonical_record, work_id)
+            self.create_publications(record, work_id)
+            self.create_contributors(record, work_id)
+            self.create_languages(record, work_id, default_language)
+            self.create_subjects(record, work_id)
+            self.create_fundings(record, work_id)
             issues_to_create.extend(
-                self.extract_issues_data(canonical_record, work_id))
-
+                self.extract_issues_data(record, work_id))
         self.create_all_issues(issues_to_create)
 
     def get_work(self, record):
@@ -125,6 +101,39 @@ class LeuvenLoader(BookLoader):
             "pageInterval": None,
         }
         return work
+    
+    def create_fundings(self, record, work_id):
+        funders = record.fundings()
+        funder_names = [f.publisher_identifier_or_publisher_name[0].value for f in funders if f.publisher_identifier_or_publisher_name]
+        for institution_name in funder_names:
+            # normalize commonly used funder names
+            if institution_name == "ERC":
+                institution_name = "European Research Council"
+            if institution_name == "KU Leuven Fund for Fair Open Access":
+                institution_name = "KU Leuven"
+                program = "Fund for Fair Open Access"
+            institution = {
+                "institutionName": institution_name
+            }
+            # check if the institution is in Thoth
+            if institution_name not in self.all_institutions:
+                # if not in Thoth, create a new institution
+                institution_id = self.thoth.create_institution(institution)
+                # add new institution to institutions cache
+                self.all_institutions[institution_name] = institution_id
+            else:
+                institution_id = self.all_institutions[institution_name]
+            funding = {
+                "workId": work_id,
+                "institutionId": institution_id,
+                "program": program if program else None,
+                "projectName": None,
+                "projectShortname": None,
+                "grantNumber": None,
+                "jurisdiction": None,
+            }
+
+            self.thoth.create_funding(funding)
 
     def create_publications(self, record, work_id):
         """Creates publication and prices associated with the current work
@@ -323,37 +332,24 @@ class LeuvenLoader(BookLoader):
         issues_in_work = []
         for series_record in record.serieses():
             series_name = Onix3Record.get_series_name(series_record)
-            issn = None
-            try:
-                issn = BookLoader.sanitise_issn(
-                    Onix3Record.get_issn(series_record))
-            except ValueError as e:
-                logging.error(f"{e} ({work_id})")
-
-            # TODO for first import there will be no existing UoL series;
-            # if updating for recurring import, initialise self.all_series first
-            if issn and issn in self.all_series:
-                series_id = self.all_series[issn]
-            elif series_name and series_name in self.all_series:
+            if series_name in self.all_series:
                 series_id = self.all_series[series_name]
-            elif not series_name or not issn:
-                # Can't add series without name/ISSN, so can't add issue
+            elif not series_name:
+                # Can't add series without name, so can't add issue
                 continue
             else:
-                # Only one ISSN per series is permitted in ONIX
-                # Use for both print and digital (as Thoth requires both)
                 series = {
                     "seriesType": "BOOK_SERIES",
                     "seriesName": series_name,
-                    "issnDigital": issn,
-                    "issnPrint": issn,
+                    "issnDigital": None,
+                    "issnPrint": None,
                     "seriesUrl": None,
                     "seriesDescription": None,
                     "seriesCfpUrl": None,
                     "imprintId": self.imprint_id
                 }
                 series_id = self.thoth.create_series(series)
-                self.all_series[issn] = series_id
+                self.all_series[series_name] = series_id
             issue_ordinal = Onix3Record.get_issue_ordinal(series_record)
             issues_in_work.append({
                 "work_id": work_id,

@@ -22,6 +22,7 @@ from eduepbchapterloader import EDUEPBChapterLoader
 from edituschapterloader import EDITUSChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
+from leuvenloader import LeuvenLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -40,6 +41,7 @@ LOADERS = {
     "EDUEPB-chapters": EDUEPBChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
+    "Leuven": LeuvenLoader,
 }
 
 ARGS = [

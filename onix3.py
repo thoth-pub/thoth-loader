@@ -2,7 +2,7 @@
 import re
 import logging
 from onix.book.v3_0.reference.strict import Product, Contributor, NamesBeforeKey, KeyNames, PersonName, ProfessionalAffiliation, \
-    ProfessionalPosition, Affiliation, TitleElement, TitleText, TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, Collection
+    ProfessionalPosition, Affiliation, TitleElement, TitleText, TitlePrefix, TitleWithoutPrefix, Subtitle, EditionNumber, Collection, Publisher
 from bookloader import BookLoader
 
 
@@ -161,6 +161,10 @@ class Onix3Record:
     def serieses(self):
         return [c for c in self._product.descriptive_detail.collection_or_no_collection
                 if type(c) is Collection]
+    
+    def fundings(self):
+        return [p for p in self._product.publishing_detail.imprint_or_publisher
+                if type(p) is Publisher and p.publishing_role.value.value in ["14", "15", "16"]]
 
     def language_code(self):
         return self._product.descriptive_detail.language[0].language_code.value.value.upper()
