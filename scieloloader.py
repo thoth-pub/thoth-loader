@@ -477,7 +477,7 @@ class SciELOBookLoader(SciELOLoader):
             "title": title["title"],
             "subtitle": title["subtitle"],
             "reference": record["_id"],
-            "edition": record["edition"][0] if record["edition"] and record["edition"][0].isdigit() else 1,
+            "edition": record["edition"][0] if record.get("edition") and record["edition"][0].isdigit() else 1,
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": publication_date,
