@@ -105,6 +105,7 @@ class LeuvenLoader(BookLoader):
     def create_fundings(self, record, work_id):
         funders = record.fundings()
         funder_names = [f.publisher_identifier_or_publisher_name[0].value for f in funders if f.publisher_identifier_or_publisher_name]
+        program = None
         for institution_name in funder_names:
             # normalize commonly used funder names
             if institution_name == "ERC":
@@ -112,21 +113,25 @@ class LeuvenLoader(BookLoader):
             if institution_name == "KU Leuven Fund for Fair Open Access":
                 institution_name = "KU Leuven"
                 program = "Fund for Fair Open Access"
-            institution = {
-                "institutionName": institution_name
-            }
-            # check if the institution is in Thoth
-            if institution_name not in self.all_institutions:
-                # if not in Thoth, create a new institution
-                institution_id = self.thoth.create_institution(institution)
-                # add new institution to institutions cache
-                self.all_institutions[institution_name] = institution_id
-            else:
+
+            # retrieve institution or create if it doesn't exist
+            if institution_name in self.all_institutions:
                 institution_id = self.all_institutions[institution_name]
+            else:
+                institution = {
+                    "institutionName": institution_name,
+                    "institutionDoi": None,
+                    "ror": None,
+                    "countryCode": None,
+                }
+                institution_id = self.thoth.create_institution(institution)
+                # cache new institution
+                self.all_institutions[institution_name] = institution_id
+
             funding = {
                 "workId": work_id,
                 "institutionId": institution_id,
-                "program": program if program else None,
+                "program": program,
                 "projectName": None,
                 "projectShortname": None,
                 "grantNumber": None,
@@ -176,19 +181,7 @@ class LeuvenLoader(BookLoader):
             "weightG": None,
             "weightOz": None,
         }
-        for measure_type, measure_unit, measurement in record.dimensions():
-            try:
-                publication.update(
-                    {self.dimension_types[(measure_type, measure_unit)]: measurement})
-            except KeyError:
-                # Ignore any dimension types which aren't stored in Thoth (e.g. weight in kg)
-                pass
         publication_id = self.thoth.create_publication(publication)
-
-        # Records frequently include the same currency/price pair multiple times
-        # (representing different suppliers): remove duplicates
-        for currency_code, unit_price in list(set(record.prices())):
-            create_price()
 
         for index, url in enumerate(record.full_text_urls()):
             canonical = "true" if index == 0 else "false"
@@ -242,39 +235,7 @@ class LeuvenLoader(BookLoader):
                 "lastName": family_name,
                 "fullName": full_name,
             }
-            contribution_id = self.thoth.create_contribution(contribution)
-
-            for index, (position, institution_string) in enumerate(Onix3Record.get_affiliations_with_positions(contributor_record)):
-                if institution_string is None:
-                    # can't add a position without an institution
-                    continue
-
-                # Institution string sometimes concludes with country name in brackets
-                # TODO could potentially extract this country name for use in creating
-                # new institution - but would have to convert to country code
-                institution_name = institution_string.split('(')[0].rstrip()
-
-                # retrieve institution or create if it doesn't exist
-                if institution_name in self.all_institutions:
-                    institution_id = self.all_institutions[institution_name]
-                else:
-                    institution = {
-                        "institutionName": institution_name,
-                        "institutionDoi": None,
-                        "ror": None,
-                        "countryCode": None,
-                    }
-                    institution_id = self.thoth.create_institution(institution)
-                    # cache new institution
-                    self.all_institutions[institution_name] = institution_id
-
-                affiliation = {
-                    "contributionId": contribution_id,
-                    "institutionId": institution_id,
-                    "position": position,
-                    "affiliationOrdinal": index + 1
-                }
-                self.thoth.create_affiliation(affiliation)
+            self.thoth.create_contribution(contribution)
 
     def create_languages(self, record, work_id, default_language):
         """Creates language associated with the current work

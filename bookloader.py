@@ -86,6 +86,8 @@ class BookLoader:
         "B02": "EDITOR",
         # B09 = "Series edited by"
         "B09": "EDITOR",
+        # B12 = "Guest editor"
+        "B12": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
         "organizer": "EDITOR",
@@ -105,6 +107,14 @@ class BookLoader:
         "Contributions By": "CONTRIBUTIONS_BY",
         # B18 = "Prepared for publication by"
         "B18": "CONTRIBUTIONS_BY",
+        # A32 = "Contributions by: Author of additional contributions to the text"
+        "A32": "CONTRIBUTIONS_BY",
+        # A43 = "Interviewer"
+        "A43": "CONTRIBUTIONS_BY",
+        # A44 = "Interviewee"
+        "A44": "CONTRIBUTIONS_BY",
+        # A19 = "Afterword by"
+        "A19": "CONTRIBUTIONS_BY",
     }
     publication_types = {
         "BB": "HARDBACK",
