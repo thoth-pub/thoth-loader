@@ -110,9 +110,12 @@ class LeuvenLoader(BookLoader):
             # normalize commonly used funder names
             if institution_name == "ERC":
                 institution_name = "European Research Council"
-            if institution_name == "KU Leuven Fund for Fair Open Access":
+                program = None
+            elif institution_name == "KU Leuven Fund for Fair Open Access":
                 institution_name = "KU Leuven"
                 program = "Fund for Fair Open Access"
+            else:
+                program = None
 
             # retrieve institution or create if it doesn't exist
             if institution_name in self.all_institutions:
@@ -147,13 +150,6 @@ class LeuvenLoader(BookLoader):
 
         work_id: previously obtained ID of the current work
         """
-        def create_price():
-            price = {
-                "publicationId": publication_id,
-                "currencyCode": currency_code,
-                "unitPrice": unit_price,
-            }
-            self.thoth.create_price(price)
 
         def create_location():
             location = {
@@ -216,7 +212,7 @@ class LeuvenLoader(BookLoader):
                     "lastName": family_name,
                     "fullName": full_name,
                     "orcid": orcid,
-                    "website": Onix3Record.get_website(contributor_record),
+                    "website": None,
                 }
                 contributor_id = self.thoth.create_contributor(contributor)
                 # cache new contributor
