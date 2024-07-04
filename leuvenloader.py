@@ -156,8 +156,9 @@ class LeuvenLoader(BookLoader):
             location = {
                 "publicationId": publication_id,
                 "landingPage": url,
-                "fullTextUrl": url,
-                "locationPlatform": "OTHER",
+                # TODO: replace with fullTextUrl after added to ONIX, if possible
+                "fullTextUrl": None,
+                "locationPlatform": "OAPEN",
                 "canonical": canonical,
             }
             self.thoth.create_location(location)
