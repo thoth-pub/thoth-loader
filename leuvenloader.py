@@ -104,7 +104,7 @@ class LeuvenLoader(BookLoader):
 
     def create_fundings(self, record, work_id):
         funders = record.fundings()
-        funder_names = [f.publisher_identifier_or_publisher_name[0].value 
+        funder_names = [f.publisher_identifier_or_publisher_name[0].value
                         for f in funders if f.publisher_identifier_or_publisher_name]
         program = None
         for institution_name in funder_names:
