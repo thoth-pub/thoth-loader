@@ -153,11 +153,13 @@ class LeuvenLoader(BookLoader):
         """
 
         def create_location():
+            oapen_record_id = oapen_landing_page_url[-5:]
+            isbn_no_hyphens = record.isbn().replace("-", "")
+            full_text_url = "https://library.oapen.org/bitstream/handle/20.500.12657/" + oapen_record_id + "/" + isbn_no_hyphens + ".pdf"
             location = {
                 "publicationId": publication_id,
-                "landingPage": url,
-                # TODO: replace with fullTextUrl after added to ONIX, if possible
-                "fullTextUrl": None,
+                "landingPage": oapen_landing_page_url,
+                "fullTextUrl": full_text_url,
                 "locationPlatform": "OAPEN",
                 "canonical": canonical,
             }
@@ -181,7 +183,7 @@ class LeuvenLoader(BookLoader):
         }
         publication_id = self.thoth.create_publication(publication)
 
-        for index, url in enumerate(record.full_text_urls()):
+        for index, oapen_landing_page_url in enumerate(record.full_text_urls()):
             canonical = "true" if index == 0 else "false"
             create_location()
 
