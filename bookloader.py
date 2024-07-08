@@ -201,13 +201,6 @@ class BookLoader:
             for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
                 for series in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
                     self.all_series[series.seriesName] = series.seriesId
-
-        if self.cache_series:
-            # create cache of all existing series using pagination
-            for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
-                for s in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
-                    self.all_series[s.seriesName] = s.seriesId
-
         if self.cache_issues:
             # create cache of all existing issues using pagination
             for offset in range(0, self.thoth.issue_count(), self.cache_pagination_size):
