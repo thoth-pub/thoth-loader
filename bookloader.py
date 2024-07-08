@@ -4,8 +4,9 @@ import pandas as pd
 import isbn_hyphenate
 import json
 import pymarc
-import roman as roman
+import roman
 import logging
+import sys
 from onix.book.v3_0.reference.strict import Onixmessage
 from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
@@ -36,10 +37,12 @@ class BookLoader:
     cache_contributors = True
     cache_institutions = True
     cache_series = False
+    cache_issues = False
     cache_pagination_size = 20000
     all_contributors = {}
     all_institutions = {}
     all_series = {}
+    all_issues = {}
     encoding = "utf-8"
     header = 0
     separation = ","
@@ -86,6 +89,8 @@ class BookLoader:
         "B02": "EDITOR",
         # B09 = "Series edited by"
         "B09": "EDITOR",
+        # B12 = "Guest editor"
+        "B12": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
         "organizer": "EDITOR",
@@ -105,6 +110,14 @@ class BookLoader:
         "Contributions By": "CONTRIBUTIONS_BY",
         # B18 = "Prepared for publication by"
         "B18": "CONTRIBUTIONS_BY",
+        # A32 = "Contributions by: Author of additional contributions to the text"
+        "A32": "CONTRIBUTIONS_BY",
+        # A43 = "Interviewer"
+        "A43": "CONTRIBUTIONS_BY",
+        # A44 = "Interviewee"
+        "A44": "CONTRIBUTIONS_BY",
+        # A19 = "Afterword by"
+        "A19": "CONTRIBUTIONS_BY",
     }
     publication_types = {
         "BB": "HARDBACK",
@@ -114,6 +127,7 @@ class BookLoader:
         "E101": "EPUB",
         "E105": "HTML",
         "E107": "PDF",
+        "E116": "AZW3",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
         "KINDLE": "AZW3"
@@ -187,6 +201,18 @@ class BookLoader:
             for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
                 for series in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
                     self.all_series[series.seriesName] = series.seriesId
+
+        if self.cache_series:
+            # create cache of all existing series using pagination
+            for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
+                for s in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
+                    self.all_series[s.seriesName] = s.seriesId
+
+        if self.cache_issues:
+            # create cache of all existing issues using pagination
+            for offset in range(0, self.thoth.issue_count(), self.cache_pagination_size):
+                for issue in self.thoth.issues(limit=self.cache_pagination_size, offset=offset):
+                    self.all_issues[issue.work.workId] = issue.issueId
 
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
@@ -282,6 +308,25 @@ class BookLoader:
         else:
             logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
         return contributor
+
+    def get_book_by_title(self, title):
+        """Query Thoth to find a book given its title"""
+        try:
+            books = self.thoth.books(search=title.replace('"', '\\"'), publishers='"%s"' % self.publisher_id)
+            return books[0]
+        except (IndexError, AttributeError):
+            logging.error('Book not found: \'%s\'' % title)
+            sys.exit(1)
+
+    def create_chapter_relation(self, book_work_id, chapter_work_id, relation_ordinal):
+        """Create a work relation of type HAS_CHILD"""
+        work_relation = {
+            "relatorWorkId": book_work_id,
+            "relatedWorkId": chapter_work_id,
+            "relationType": "HAS_CHILD",
+            "relationOrdinal": relation_ordinal
+        }
+        return self.thoth.create_work_relation(work_relation)
 
     @staticmethod
     def get_work_contributions(work):

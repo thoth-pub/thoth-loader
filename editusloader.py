@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """Load EDITUS metadata into Thoth"""
 
-from scieloloader import SciELOLoader
+from scieloloader import SciELOBookLoader
 
-class EDITUSLoader(SciELOLoader):
-    """EDITUS specific logic to ingest metadata from JSON into Thoth"""
+
+class EDITUSLoader(SciELOBookLoader):
+    """EDITUS specific logic to ingest book metadata from JSON into Thoth"""
     publisher_name = "EDITUS"
     publisher_url = "http://www.uesc.br/editora/"

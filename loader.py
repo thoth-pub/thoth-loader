@@ -18,8 +18,11 @@ from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
 from eduepbloader import EDUEPBLoader
+from eduepbchapterloader import EDUEPBChapterLoader
+from edituschapterloader import EDITUSChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
+from leuvenloader import LeuvenLoader
 from lharmattanloader import LHarmattanLoader
 
 LOADERS = {
@@ -34,10 +37,13 @@ LOADERS = {
     "UWP": UWPLoader,
     "LSE": LSELoader,
     "EDITUS": EDITUSLoader,
+    "EDITUS-chapters": EDITUSChapterLoader,
     "EDUEPB": EDUEPBLoader,
+    "EDUEPB-chapters": EDUEPBChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
-    "LHarmattan": LHarmattanLoader
+    "Leuven": LeuvenLoader,
+    "LHarmattan": LHarmattanLoader,
 }
 
 ARGS = [
