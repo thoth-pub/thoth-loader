@@ -144,25 +144,13 @@ class LHarmattanLoader(BookLoader):
                 creators_array = creators.split("|")
                 for creator in creators_array:
                     individual_creator_count += 1
-                    # sanitise names for correct Thoth formatting
-                    # most names are separated by comma, e.g. "Varga, Zsuzsanna"
-                    if "," in creator:
-                        surname, name = creator.split(', ')
-                        full_name = f"{name} {surname}"
-                    # a few names are not comma-separated, e.g. "Monok István"
-                    else:
-                        split_creator = creator.split()
-                        # case for non-comma separated names with middle initial
-                        if len(split_creator) == 3:
-                            name = " ".join([split_creator[2], split_creator[0]])
-                            surname = split_creator[1]
-                            full_name = " ".join([split_creator[2], split_creator[0], split_creator[1]])
-                        elif len(split_creator) == 2:
-                            name = split_creator[1]
-                            surname = split_creator[0]
-                            full_name = " ".join(reversed(split_creator))
-                        else:
-                            name = surname = full_name = creator
+                    # sanitise names for correct Thoth formatting - separated by comma
+                    # note: 1) Hungarian full names are usually presented in "surname given-name" order,
+                    # but database already contains some in "given-name surname" (Westernised) order
+                    # 2) Hungarians may have two surnames and truncate the first to an initial -
+                    # not to be confused with middle initial i.e. second given name (e.g. "K. Németh, András")
+                    surname, name = creator.split(', ')
+                    full_name = f"{name} {surname}"
                     contributor = {
                         "firstName": name,
                         "lastName": surname,
