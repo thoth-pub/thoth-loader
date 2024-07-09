@@ -124,7 +124,6 @@ class LHarmattanLoader(BookLoader):
         translators = row.get("scs023_translator")
         contributors = row.get("contributor")
         editors = row.get("scs023_editor")
-        orcid = self.sanitise_orcid(row.get("scs023_orcid"))
         website = row.get("scs023_web")
 
         all_creators = [
@@ -183,12 +182,11 @@ class LHarmattanLoader(BookLoader):
                         highest_contribution_ordinal += 1
                     else:
                         logging.info(f"existing contribution for {full_name}, type: {contribution_type}")
-        # CSV may contain ORCID and/or website that corresponds to a creator,
+        # CSV may contain website that corresponds to a creator,
         # but there's no way to tell who when there are multiple creators
-        # if there is only one creator in CSV, add orcid and website to them, else don't add
-        if creator_category_count == 1 and individual_creator_count == 1:
-            logging.info(f"{full_name} is the only contributor for {work.title}, adding ORCID and website")
-            contributor["orcid"] = orcid
+        # if there is only one creator in CSV, add website to them (if present), else don't add
+        if creator_category_count == 1 and individual_creator_count == 1 and website:
+            logging.info(f"{full_name} is the only contributor for {work.title}, adding website")
             contributor["website"] = website
             self.check_update_contributor(contributor, contributor_id)
 
