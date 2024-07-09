@@ -22,7 +22,7 @@ class LHarmattanLoader(BookLoader):
         for index, row in self.data.iterrows():
             logging.info("\n\n\n\n**********")
             logging.info(f"processing book {index + 1}: {row['title']}")
-            work, landing_page = self.get_work(row, self.imprint_id)
+            work = self.get_work(row, self.imprint_id)
             # try to find the work in Thoth
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -43,7 +43,7 @@ class LHarmattanLoader(BookLoader):
                 logging.info(f"created work with workId: {work_id}")
             work = self.thoth.work_by_id(work_id)
             self.create_contributors(row, work)
-            self.create_publications(row, work, landing_page)
+            self.create_publications(row, work)
             self.create_languages(row, work)
             self.create_series(row, work)
             self.create_subjects(row, work)
@@ -60,11 +60,7 @@ class LHarmattanLoader(BookLoader):
         # resolve DOI to obtain landing page
         response = requests.head(row["scs023_doi"], allow_redirects=True)
         landing_page = response.url
-        work_type = row["taxonomy_Thoth"]
-        if work_type in self.work_types:
-            work_type = self.work_types[row["taxonomy_Thoth"]]
-        else:
-            work_type = "MONOGRAPH"
+        work_type = self.work_types[row["taxonomy_Thoth"]]
         title = self.split_title(row["title"].strip())
         # date only available as year; add date to Thoth as 01-01-YYYY
         date = self.sanitise_date(row["date"])
@@ -115,7 +111,7 @@ class LHarmattanLoader(BookLoader):
             "lastPage": None,
             "pageInterval": None,
         }
-        return work, landing_page
+        return work
 
     def create_contributors(self, row, work):
         """Creates/updates all contributors associated with the current work and their contributions
@@ -196,7 +192,7 @@ class LHarmattanLoader(BookLoader):
             contributor["website"] = website
             self.check_update_contributor(contributor, contributor_id)
 
-    def create_publications(self, row, work, pdf_landing_page):
+    def create_publications(self, row, work):
         """Creates PDF and paperback publications associated with the current work
 
         row: current CSV record
@@ -207,7 +203,7 @@ class LHarmattanLoader(BookLoader):
         print_landing_page = row["scs023_printed_version"]
         pdf_full_text = row["fulltext_repository"]
 
-        publications = [["PDF", None, pdf_landing_page]]
+        publications = [["PDF", None, work.landingPage]]
         # some rows don't have landing page for print
         # only create a print Publication in Thoth if print_landing_page exists
         if print_landing_page:

@@ -277,7 +277,7 @@ class BookLoader:
         # find existing contributor in Thoth
         contributor_record = self.thoth.contributor(contributor_id, True)
         thoth_contributor = json.loads(contributor_record)['data']['contributor']
-        # remove unnecesary fields for comparison to contributor
+        # remove unnecessary fields for comparison to contributor
         del thoth_contributor['__typename']
         del thoth_contributor['contributions']
         # add contributorId to contributor dictionary so it can be compared to thoth_contributor
