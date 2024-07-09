@@ -303,21 +303,18 @@ class LHarmattanLoader(BookLoader):
             logging.info(f"existing series {series_name}")
             series_id = self.all_series[series_name]
 
-        if not work.issues:
-            # find all existing issues in Series
-            current_series = self.thoth.series(series_id)
-            # count them
-            number_of_issues = len(current_series.issues)
-            # assign next highest issueOrdinal
-            issue = {
-                "seriesId": series_id,
-                "workId": work.workId,
-                "issueOrdinal": number_of_issues + 1,
-            }
-            self.thoth.create_issue(issue)
-            logging.info("Created new issue for work")
-        else:
-            logging.info("Work already has associated issue")
+        # find all existing issues in Series
+        current_series = self.thoth.series(series_id)
+        # count them
+        number_of_issues = len(current_series.issues)
+        # assign next highest issueOrdinal
+        issue = {
+            "seriesId": series_id,
+            "workId": work.workId,
+            "issueOrdinal": number_of_issues + 1,
+        }
+        self.thoth.create_issue(issue)
+        logging.info("Created new issue for work")
 
     def create_subjects(self, row, work):
         """Creates all subjects associated with the current work
