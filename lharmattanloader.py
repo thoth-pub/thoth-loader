@@ -283,19 +283,15 @@ class LHarmattanLoader(BookLoader):
         work: current work
         """
         series_name = row["scs023_series"]
-        series_issn = row["scs023_issn"]
-
-        if not series_issn or not series_name:
-            logging.info(f"{work.fullTitle} missing series metadata (ISSN and/or name); skipping create_series")
+        if not series_name:
+            logging.info(f"{work.fullTitle} missing series name; skipping create_series")
             return
         if series_name not in self.all_series:
             try:
-                issn = self.sanitise_issn(series_issn)
+                issn = self.sanitise_issn(row["scs023_issn"])
             except ValueError as e:
                 logging.error(f"{e} ({work.workId})")
-            if not issn:
-                logging.info(f"{work.fullTitle} does not have properly formed ISSN; skipping")
-                return
+                issn = None
             series = {
                 "seriesType": "BOOK_SERIES",
                 "seriesName": series_name,
