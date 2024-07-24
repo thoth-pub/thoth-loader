@@ -26,6 +26,8 @@ from edufbachapterloader import EDUFBAChapterLoader
 from rosariochapterloader import RosarioChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
+from leuvenloader import LeuvenLoader
+from lharmattanloader import LHarmattanLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -48,6 +50,8 @@ LOADERS = {
     "Rosario-chapters": RosarioChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
+    "Leuven": LeuvenLoader,
+    "LHarmattan": LHarmattanLoader,
 }
 
 ARGS = [

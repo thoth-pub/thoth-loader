@@ -49,12 +49,15 @@ class BookLoader:
     work_types = {
         "Monograph": "MONOGRAPH",
         "MONOGRAPH": "MONOGRAPH",
+        "monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
         "Edited Book": "EDITED_BOOK",
         "EDITED_BOOK": "EDITED_BOOK",
+        "edited book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
-        "Journal": "JOURNAL_ISSUE"
+        "Journal": "JOURNAL_ISSUE",
+        "textbook": "TEXTBOOK"
     }
     work_statuses = {
         "Active": "ACTIVE",
@@ -86,6 +89,8 @@ class BookLoader:
         "B02": "EDITOR",
         # B09 = "Series edited by"
         "B09": "EDITOR",
+        # B12 = "Guest editor"
+        "B12": "EDITOR",
         "B13": "EDITOR",
         "C99": "EDITOR",
         "organizer": "EDITOR",
@@ -105,6 +110,14 @@ class BookLoader:
         "Contributions By": "CONTRIBUTIONS_BY",
         # B18 = "Prepared for publication by"
         "B18": "CONTRIBUTIONS_BY",
+        # A32 = "Contributions by: Author of additional contributions to the text"
+        "A32": "CONTRIBUTIONS_BY",
+        # A43 = "Interviewer"
+        "A43": "CONTRIBUTIONS_BY",
+        # A44 = "Interviewee"
+        "A44": "CONTRIBUTIONS_BY",
+        # A19 = "Afterword by"
+        "A19": "CONTRIBUTIONS_BY",
         "collaborator": "CONTRIBUTIONS_BY",
         "other": "CONTRIBUTIONS_BY",
     }
@@ -185,13 +198,11 @@ class BookLoader:
                     self.all_institutions[i.institutionName] = i.institutionId
                     if i.ror:
                         self.all_institutions[i.ror] = i.institutionId
-
         if self.cache_series:
             # create cache of all existing series using pagination
             for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
-                for s in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
-                    self.all_series[s.seriesName] = s.seriesId
-
+                for series in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
+                    self.all_series[series.seriesName] = series.seriesId
         if self.cache_issues:
             # create cache of all existing issues using pagination
             for offset in range(0, self.thoth.issue_count(), self.cache_pagination_size):
@@ -263,6 +274,35 @@ class BookLoader:
         return "true" \
             if contribution_type in self.main_contributions \
             else "false"
+
+    def check_update_contributor(self, contributor, contributor_id):
+        # find existing contributor in Thoth
+        contributor_record = self.thoth.contributor(contributor_id, True)
+        thoth_contributor = json.loads(contributor_record)['data']['contributor']
+        # remove unnecessary fields for comparison to contributor
+        del thoth_contributor['__typename']
+        del thoth_contributor['contributions']
+        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
+        contributor["contributorId"] = contributor_id
+        if contributor != thoth_contributor:
+            combined_contributor = {}
+            # some contributors may have contributed to multiple books and be in the JSON multiple times
+            # with profile_link containing different values.
+            # Combine the dictionaries and keep the value that is not None.
+            for key in set(thoth_contributor) | set(contributor):
+                if contributor[key] is not None:
+                    combined_contributor[key] = contributor[key]
+                else:
+                    combined_contributor[key] = thoth_contributor[key]
+            # combined contributor now contains the values from both dictionaries
+            # however, if all of these values are already in Thoth, there's no need to update
+            # so only update if combined_contributor is different from thoth_contributor
+            if combined_contributor != thoth_contributor:
+                self.thoth.update_contributor(combined_contributor)
+                logging.info(f"updated contributor: {contributor_id}")
+        else:
+            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
+        return contributor
 
     def get_book_by_title(self, title):
         """Query Thoth to find a book given its title"""
