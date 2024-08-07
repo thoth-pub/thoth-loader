@@ -166,7 +166,7 @@ class LeuvenLoader(BookLoader):
             }
             self.thoth.create_location(location)
 
-        publication = {
+        main_publication = {
             "workId": work_id,
             "publicationType": self.publication_types[record.product_type()],
             "isbn": record.isbn(),
@@ -182,11 +182,32 @@ class LeuvenLoader(BookLoader):
             "weightG": None,
             "weightOz": None,
         }
-        publication_id = self.thoth.create_publication(publication)
+        publication_id = self.thoth.create_publication(main_publication)
 
         for index, oapen_landing_page_url in enumerate(record.full_text_urls()):
             canonical = "true" if index == 0 else "false"
             create_location()
+
+        for (product_type, isbn) in record.alternative_formats():
+            # Translations etc are sometimes included in "alternative formats" section
+            if product_type != record.product_type():
+                related_publication = {
+                    "workId": work_id,
+                    "publicationType": self.publication_types[product_type],
+                    "isbn": isbn,
+                    "widthMm": None,
+                    "widthCm": None,
+                    "widthIn": None,
+                    "heightMm": None,
+                    "heightCm": None,
+                    "heightIn": None,
+                    "depthMm": None,
+                    "depthCm": None,
+                    "depthIn": None,
+                    "weightG": None,
+                    "weightOz": None,
+                }
+                self.thoth.create_publication(related_publication)
 
     def create_contributors(self, record, work_id):
         """Creates all contributions associated with the current work

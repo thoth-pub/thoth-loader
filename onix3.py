@@ -240,6 +240,30 @@ class Onix3Record:
                 for ident in work.work_identifier
                 if ident.idtype_name is not None and ident.idtype_name.value == "system-internal-identifier"][0]
 
+    def alternative_formats(self):
+        related_products = [n for n in self._product.related_material.related_product
+                            if n.product_relation_code[0].value.value in ["06", "13"]]
+        alternative_formats = []
+
+        for product in related_products:
+            isbn = None
+            product_type = None
+            try:
+                isbn = BookLoader.sanitise_isbn([ident.idvalue.value for ident in product.product_identifier
+                                                 if ident.product_idtype.value.value == "15"][0])
+            except Exception:
+                logging.warning("Invalid ISBN for alternative format")
+            if isbn:
+                try:
+                    product_type = product.product_form_detail[0].value.value
+                    # Check that this ONIX code is one we can unambiguously convert to a Thoth publication type
+                    BookLoader.publication_types[product_type]
+                except (IndexError, KeyError):
+                    product_type = product.product_form.value.value
+                alternative_formats.append((product_type, isbn))
+
+        return alternative_formats
+
     def product_type(self):
         try:
             product_type = self._product.descriptive_detail.product_form_detail[0].value.value
