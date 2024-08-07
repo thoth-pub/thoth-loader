@@ -126,7 +126,7 @@ class Onix3Record:
 
     def page_count(self):
         page_count = [extent.extent_value.value for extent in self._product.descriptive_detail.extent
-                      if extent.extent_type.value.value in ["00", "06", "07", "08", "11"]]
+                      if extent.extent_type.value.value in ["00", "06", "07", "08", "10", "11"]]
         try:
             return int(page_count[0])
         except IndexError:
