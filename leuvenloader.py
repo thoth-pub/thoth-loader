@@ -155,8 +155,8 @@ class LeuvenLoader(BookLoader):
         def create_location():
             oapen_record_id = oapen_landing_page_url[-5:]
             isbn_no_hyphens = record.isbn().replace("-", "")
-            full_text_url = "https://library.oapen.org/bitstream/handle/20.500.12657/"
-            + oapen_record_id + "/" + isbn_no_hyphens + ".pdf"
+            full_text_url = "https://library.oapen.org/bitstream/handle/20.500.12657/" \
+                + oapen_record_id + "/" + isbn_no_hyphens + ".pdf"
             location = {
                 "publicationId": publication_id,
                 "landingPage": oapen_landing_page_url,
