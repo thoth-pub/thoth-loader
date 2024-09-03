@@ -1,4 +1,4 @@
-thothlibrary==0.26.0
+thothlibrary==0.26.2
 pandas==2.1.1
 requests==2.32.3
 isbn-hyphenate==1.0.4
