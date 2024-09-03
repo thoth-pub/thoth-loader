@@ -29,8 +29,6 @@ class AfricanMindsBookLoader(BookLoader):
         """Returns a dictionary with all attributes of a 'work'
 
         row: current row number
-
-        imprint_id: previously obtained ID of this work's imprint
         """
         title = self.split_title(self.data.at[row, 'title'])
         doi = self.sanitise_string(self.data.at[row, 'doi'])

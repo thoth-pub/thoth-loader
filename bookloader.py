@@ -1,10 +1,14 @@
 """Load a CSV file into Thoth"""
-
 import re
 import pandas as pd
 import isbn_hyphenate
+import json
 import pymarc
-import roman as roman
+import roman
+import logging
+import sys
+from onix.book.v3_0.reference.strict import Onixmessage
+from xsdata.formats.dataclass.parsers import XmlParser
 from thothlibrary import ThothClient
 
 
@@ -23,35 +27,51 @@ class Deduper():  # pylint: disable=too-few-public-methods
 
 
 class BookLoader:
-    """Generic logic to ingest metadata from CSV into Thoth"""
-    allowed_formats = ["CSV", "MARCXML"]
+    """Generic logic to ingest metadata from CSV, MARCXML, ONIX, or JSON into Thoth"""
+    allowed_formats = ["CSV", "MARCXML", "ONIX3", "JSON"]
     import_format = "CSV"
     single_imprint = True
     publisher_name = None
     publisher_shortname = None
     publisher_url = None
+    cache_contributors = True
+    cache_institutions = True
+    cache_series = False
+    cache_issues = False
+    cache_pagination_size = 20000
     all_contributors = {}
     all_institutions = {}
     all_series = {}
+    all_issues = {}
     encoding = "utf-8"
     header = 0
     separation = ","
     work_types = {
         "Monograph": "MONOGRAPH",
         "MONOGRAPH": "MONOGRAPH",
+        "monograph": "MONOGRAPH",
         "Book": "MONOGRAPH",
         "Edited book": "EDITED_BOOK",
         "Edited Book": "EDITED_BOOK",
         "EDITED_BOOK": "EDITED_BOOK",
+        "edited book": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
-        "Journal": "JOURNAL_ISSUE"
+        "Journal": "JOURNAL_ISSUE",
+        "textbook": "TEXTBOOK"
     }
     work_statuses = {
         "Active": "ACTIVE",
+        "ACTIVE": "ACTIVE",
+        "04": "ACTIVE",
         "Cancelled": "CANCELLED",
         "Forthcoming": "FORTHCOMING",
+        "02": "FORTHCOMING",
         "Out of print": "OUT_OF_PRINT",
-        "Withdrawn": "WITHDRAWN_FROM_SALE"
+        "07": "OUT_OF_PRINT",
+        "Withdrawn": "WITHDRAWN_FROM_SALE",
+        "05": "NO_LONGER_OUR_PRODUCT",
+        "06": "OUT_OF_STOCK_INDEFINITELY",
+        "09": "UNKNOWN",
     }
     contribution_types = {
         "Author": "AUTHOR",
@@ -59,23 +79,78 @@ class BookLoader:
         "AUTHOR": "AUTHOR",
         "AUHTOR": "AUTHOR",
         "A01": "AUTHOR",
+        "individual_author": "AUTHOR",
+        # A02 = "With or as told to"
+        "A02": "AUTHOR",
         "editor": "EDITOR",
         "Editor": "EDITOR",
         "EDITOR": "EDITOR",
         "B01": "EDITOR",
         "B02": "EDITOR",
+        # B09 = "Series edited by"
+        "B09": "EDITOR",
+        # B12 = "Guest editor"
+        "B12": "EDITOR",
+        "B13": "EDITOR",
         "C99": "EDITOR",
+        "organizer": "EDITOR",
         "Translator": "TRANSLATOR",
+        "translator": "TRANSLATOR",
         "Photographer": "PHOTOGRAPHER",
         "Illustrator": "ILLUSTRATOR",
         "B06": "TRANSLATOR",
         "Foreword": "FOREWORD_BY",
+        "A24": "INTRODUCTION_BY",
         "Introduction": "INTRODUCTION_BY",
         "writer of introduction": "INTRODUCTION_BY",
+        "A15": "PREFACE_BY",
         "Preface": "PREFACE_BY",
         "Music editor": "MUSIC_EDITOR",
         "Research By": "RESEARCH_BY",
-        "Contributions By": "CONTRIBUTIONS_BY"
+        "Contributions By": "CONTRIBUTIONS_BY",
+        # B18 = "Prepared for publication by"
+        "B18": "CONTRIBUTIONS_BY",
+        # A32 = "Contributions by: Author of additional contributions to the text"
+        "A32": "CONTRIBUTIONS_BY",
+        # A43 = "Interviewer"
+        "A43": "CONTRIBUTIONS_BY",
+        # A44 = "Interviewee"
+        "A44": "CONTRIBUTIONS_BY",
+        # A19 = "Afterword by"
+        "A19": "CONTRIBUTIONS_BY",
+    }
+    publication_types = {
+        "BB": "HARDBACK",
+        "BC": "PAPERBACK",
+        "B106": "PAPERBACK",
+        "B402": "HARDBACK",
+        "E101": "EPUB",
+        "E105": "HTML",
+        "E107": "PDF",
+        "E116": "AZW3",
+        "Paperback": "PAPERBACK",
+        "Hardback": "HARDBACK",
+        "KINDLE": "AZW3"
+    }
+
+    language_codes = {
+        "pt": "POR",
+        "en": "ENG",
+        "es": "SPA",
+    }
+
+    dimension_types = {
+        ("02", "mm"): "widthMm",
+        ("02", "cm"): "widthCm",
+        ("02", "in"): "widthIn",
+        ("01", "mm"): "heightMm",
+        ("01", "cm"): "heightCm",
+        ("01", "in"): "heightIn",
+        ("03", "mm"): "depthMm",
+        ("03", "cm"): "depthCm",
+        ("03", "in"): "depthIn",
+        ("08", "gr"): "weightG",
+        ("08", "oz"): "weightOz",
     }
 
     main_contributions = ["AUTHOR", "EDITOR", "TRANSLATOR"]
@@ -96,26 +171,41 @@ class BookLoader:
             self.data = self.prepare_csv_file()
         elif self.import_format == "MARCXML":
             self.data = self.prepare_marcxml_file()
-        publishers = self.thoth.publishers(search=self.publisher_name)
-        try:
-            self.publisher_id = publishers[0].publisherId
-        except (IndexError, AttributeError):
-            self.publisher_id = self.create_publisher()
-        try:
-            self.imprint_id = publishers[0].imprints[0].imprintId
-        except (IndexError, AttributeError):
-            self.imprint_id = self.create_imprint()
+        elif self.import_format == "ONIX3":
+            self.data = self.prepare_onix3_file()
+        elif self.import_format == "JSON":
+            self.data = self.prepare_json_file()
 
-        # create cache of all existing contributors
-        for c in self.thoth.contributors(limit=99999):
-            self.all_contributors[c.fullName] = c.contributorId
-            if c.orcid:
-                self.all_contributors[c.orcid] = c.contributorId
-        # create cache of all existing institutions
-        for i in self.thoth.institutions(limit=99999):
-            self.all_institutions[i.institutionName] = i.institutionId
-            if i.ror:
-                self.all_institutions[i.ror] = i.institutionId
+        try:
+            self.set_publisher_and_imprint()
+        except Exception:
+            # Publisher name may not be set at this point, which is OK
+            pass
+
+        if self.cache_contributors:
+            # create cache of all existing contributors using pagination
+            for offset in range(0, self.thoth.contributor_count(), self.cache_pagination_size):
+                for c in self.thoth.contributors(limit=self.cache_pagination_size, offset=offset):
+                    self.all_contributors[c.fullName] = c.contributorId
+                    if c.orcid:
+                        self.all_contributors[c.orcid] = c.contributorId
+        if self.cache_institutions:
+            # create cache of all existing institutions using pagination
+            for offset in range(0, self.thoth.institution_count(), self.cache_pagination_size):
+                for i in self.thoth.institutions(limit=self.cache_pagination_size, offset=offset):
+                    self.all_institutions[i.institutionName] = i.institutionId
+                    if i.ror:
+                        self.all_institutions[i.ror] = i.institutionId
+        if self.cache_series:
+            # create cache of all existing series using pagination
+            for offset in range(0, self.thoth.series_count(), self.cache_pagination_size):
+                for series in self.thoth.serieses(limit=self.cache_pagination_size, offset=offset):
+                    self.all_series[series.seriesName] = series.seriesId
+        if self.cache_issues:
+            # create cache of all existing issues using pagination
+            for offset in range(0, self.thoth.issue_count(), self.cache_pagination_size):
+                for issue in self.thoth.issues(limit=self.cache_pagination_size, offset=offset):
+                    self.all_issues[issue.work.workId] = issue.issueId
 
     def prepare_csv_file(self):
         """Read CSV, convert empties to None and rename duplicate columns"""
@@ -129,6 +219,18 @@ class BookLoader:
         """Read MARC XML"""
         collection = pymarc.marcxml.parse_xml_to_array(self.metadata_file)
         return collection
+
+    def prepare_onix3_file(self):
+        """Read ONIX 3.0"""
+        parser = XmlParser()
+        message = parser.parse(self.metadata_file, Onixmessage)
+        return message
+
+    def prepare_json_file(self):
+        """Read JSON"""
+        with open(self.metadata_file) as raw_json:
+            prepared_json = json.load(raw_json)
+        return prepared_json
 
     def create_publisher(self):
         """Create a publisher object in Thoth and return its ID"""
@@ -148,11 +250,76 @@ class BookLoader:
         }
         return self.thoth.create_imprint(imprint)
 
+    def set_publisher_and_imprint(self):
+        if self.publisher_name:
+            publishers = self.thoth.publishers(
+                        search=self.publisher_name)
+            try:
+                self.publisher_id = publishers[0].publisherId
+            except (IndexError, AttributeError):
+                self.publisher_id = self.create_publisher()
+            try:
+                self.imprint_id = publishers[0].imprints[0].imprintId
+            except (IndexError, AttributeError):
+                self.imprint_id = self.create_imprint()
+        else:
+            # Searching on an empty publisher name would return
+            # the full set of publishers and select the first one
+            raise
+
     def is_main_contribution(self, contribution_type):
         """Return a boolean string ready for ingestion"""
         return "true" \
             if contribution_type in self.main_contributions \
             else "false"
+
+    def check_update_contributor(self, contributor, contributor_id):
+        # find existing contributor in Thoth
+        contributor_record = self.thoth.contributor(contributor_id, True)
+        thoth_contributor = json.loads(contributor_record)['data']['contributor']
+        # remove unnecessary fields for comparison to contributor
+        del thoth_contributor['__typename']
+        del thoth_contributor['contributions']
+        # add contributorId to contributor dictionary so it can be compared to thoth_contributor
+        contributor["contributorId"] = contributor_id
+        if contributor != thoth_contributor:
+            combined_contributor = {}
+            # some contributors may have contributed to multiple books and be in the JSON multiple times
+            # with profile_link containing different values.
+            # Combine the dictionaries and keep the value that is not None.
+            for key in set(thoth_contributor) | set(contributor):
+                if contributor[key] is not None:
+                    combined_contributor[key] = contributor[key]
+                else:
+                    combined_contributor[key] = thoth_contributor[key]
+            # combined contributor now contains the values from both dictionaries
+            # however, if all of these values are already in Thoth, there's no need to update
+            # so only update if combined_contributor is different from thoth_contributor
+            if combined_contributor != thoth_contributor:
+                self.thoth.update_contributor(combined_contributor)
+                logging.info(f"updated contributor: {contributor_id}")
+        else:
+            logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
+        return contributor
+
+    def get_book_by_title(self, title):
+        """Query Thoth to find a book given its title"""
+        try:
+            books = self.thoth.books(search=title.replace('"', '\\"'), publishers='"%s"' % self.publisher_id)
+            return books[0]
+        except (IndexError, AttributeError):
+            logging.error('Book not found: \'%s\'' % title)
+            sys.exit(1)
+
+    def create_chapter_relation(self, book_work_id, chapter_work_id, relation_ordinal):
+        """Create a work relation of type HAS_CHILD"""
+        work_relation = {
+            "relatorWorkId": book_work_id,
+            "relatedWorkId": chapter_work_id,
+            "relationType": "HAS_CHILD",
+            "relationOrdinal": relation_ordinal
+        }
+        return self.thoth.create_work_relation(work_relation)
 
     @staticmethod
     def get_work_contributions(work):
@@ -197,8 +364,10 @@ class BookLoader:
         if not date:
             return None
         date = str(int(date))
+        if len(date) == len("2023"):
+            return f"{date}-01-01"
         if len(date) == len("20200101"):
-            return "{}-{}-{}".format(date[:4], date[4:6], date[6:8])
+            return f"{date[:4]}-{date[4:6]}-{date[6:8]}"
         return date.replace("/", "-").strip()
 
     @staticmethod
@@ -208,7 +377,10 @@ class BookLoader:
             return None
         try:
             if "-" in str(isbn):
-                return str(isbn)
+                if not len(str(isbn)) == 17:
+                    raise isbn_hyphenate.IsbnMalformedError
+                else:
+                    return str(isbn)
             return isbn_hyphenate.hyphenate(str(int(isbn)))
         except ValueError:
             return None
@@ -217,11 +389,63 @@ class BookLoader:
             raise
 
     @staticmethod
+    def sanitise_issn(issn):
+        """Return a hyphenated ISSN"""
+        if not issn:
+            return None
+        if "-" in str(issn):
+            hyphenated_issn = str(issn)
+        else:
+            hyphenated_issn = str(issn)[:4] + '-' + str(issn)[4:]
+        if not len(hyphenated_issn) == 9:
+            raise ValueError("ISSN incorrectly formatted: %s" % issn)
+        return hyphenated_issn
+
+    @staticmethod
+    def sanitise_url(url):
+        """Return a URL beginning https://"""
+        if not url:
+            return None
+        if url.startswith("https://"):
+            return url
+        else:
+            return "https://{}".format(url)
+
+    @staticmethod
+    def sanitise_doi(doi):
+        """Return a DOI beginning https://doi.org/"""
+        return BookLoader.sanitise_identifier(doi, "doi")
+
+    @staticmethod
+    def sanitise_orcid(orcid):
+        """Return an ORCID beginning https://orcid.org/"""
+        return BookLoader.sanitise_identifier(orcid, "orcid")
+
+    @staticmethod
+    def sanitise_ror(ror):
+        """Return a ROR beginning https://ror.org/"""
+        return BookLoader.sanitise_identifier(ror, "ror")
+
+    @staticmethod
+    def sanitise_identifier(identifier, domain):
+        """Return an identifier beginning https://{domain}.org/"""
+        if not identifier:
+            return None
+        if identifier.startswith("https://{}.org/".format(domain)):
+            return identifier
+        elif identifier.startswith("http://{}.org/".format(domain)):
+            return identifier.replace("http://", "https://")
+        elif identifier.startswith("{}.org/".format(domain)):
+            return BookLoader.sanitise_url(identifier)
+        else:
+            return "https://{}.org/{}".format(domain, identifier)
+
+    @staticmethod
     def sanitise_price(price):
         """Return a float ready for ingestion"""
         try:
             return float(price.replace("$", "").strip())
-        except (TypeError, AttributeError):
+        except (TypeError, AttributeError, ValueError):
             return None
 
     @staticmethod

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Metadata loader
 
-Call custom, business specific, workflows to ingest metdata into Thoth.
+Call custom, business specific, workflows to ingest metadata into Thoth.
 """
 
 import argparse
@@ -13,7 +13,17 @@ from punctumloader import PunctumBookLoader
 from punctumchapterloader import PunctumChapterLoader
 from africanmindsloader import AfricanMindsBookLoader
 from whploader import WHPLoader
+from whpchapterloader import WHPChapterLoader
 from uwploader import UWPLoader
+from lseloader import LSELoader
+from editusloader import EDITUSLoader
+from eduepbloader import EDUEPBLoader
+from eduepbchapterloader import EDUEPBChapterLoader
+from edituschapterloader import EDITUSChapterLoader
+from ubiquityloader import UbiquityPressesLoader
+from uolloader import UOLLoader
+from leuvenloader import LeuvenLoader
+from lharmattanloader import LHarmattanLoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -23,7 +33,17 @@ LOADERS = {
     "punctum-chapters": PunctumChapterLoader,
     "AM": AfricanMindsBookLoader,
     "WHP": WHPLoader,
+    "WHP-chapters": WHPChapterLoader,
     "UWP": UWPLoader,
+    "LSE": LSELoader,
+    "EDITUS": EDITUSLoader,
+    "EDITUS-chapters": EDITUSChapterLoader,
+    "EDUEPB": EDUEPBLoader,
+    "EDUEPB-chapters": EDUEPBChapterLoader,
+    "Ubiquity-presses": UbiquityPressesLoader,
+    "UOL": UOLLoader,
+    "Leuven": LeuvenLoader,
+    "LHarmattan": LHarmattanLoader,
 }
 
 ARGS = [
@@ -87,3 +107,4 @@ if __name__ == '__main__':
     ARGUMENTS = get_arguments()
     run(ARGUMENTS.mode, ARGUMENTS.file, ARGUMENTS.client_url,
         ARGUMENTS.email, ARGUMENTS.password)
+
