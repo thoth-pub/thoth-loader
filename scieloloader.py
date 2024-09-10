@@ -241,9 +241,14 @@ class SciELOChapterLoader(SciELOLoader):
             chapter_internal_id = record["_id"]
             book_id = self.get_book_by_title(book_title).workId
             relation_ordinal = record["order"]
+            # convert relation_ordinal from JSON to int
+            if relation_ordinal == "00":
+                relation_ordinal = 1
+            else:
+                relation_ordinal = int(relation_ordinal) + 1
             chapter_exists = False
             try:
-                chapter = self.get_chapter_by_string(chapter_internal_id)
+                chapter = self.get_chapter_by_int_ref(chapter_internal_id)
                 chapter_exists = True
                 logging.info("Chapter already exists, attempting to update")
                 try:
@@ -266,6 +271,8 @@ class SciELOChapterLoader(SciELOLoader):
                     logging.info("contributors updated")
                     self.create_publications(record, chapter_work)
                     logging.info("publications updated")
+                    self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
+                    logging.info("chapter relation created")
                 except ThothError as t:
                     logging.error(f"Failed to update chapter: {chapter['title']}, exception: {t}")
                     sys.exit(1)
@@ -283,11 +290,6 @@ class SciELOChapterLoader(SciELOLoader):
                 logging.info("contributors created")
                 self.create_publications(record, chapter_work)
                 logging.info("publications created")
-                # convert relation_ordinal from JSON to int
-                if relation_ordinal == "00":
-                    relation_ordinal = 1
-                else:
-                    relation_ordinal = int(relation_ordinal) + 1
                 self.create_chapter_relation(book_id, chapter_id, relation_ordinal)
                 logging.info("chapter relation created")
 
@@ -376,42 +378,34 @@ class SciELOChapterLoader(SciELOLoader):
         }
         return work
 
-    def get_chapter_by_string(self, string):
-        """Query Thoth to return a chapter given a string, e.g. internal ID"""
-        chapter = self.thoth.works(search=string, work_types="BOOK_CHAPTER", publishers=f'"{self.publisher_id}"')
-        return chapter[0]
+    def get_chapter_by_int_ref(self, string):
+        """Query Thoth to return a chapter given a string representing its internal reference"""
+        # SciELO internal references (IDs) may only be 2 characters, so search may return (lots of) false positives
+        chapter = self.thoth.works(search=string, work_types="BOOK_CHAPTER", publishers=f'"{self.publisher_id}"',
+                                   limit=9999)
+        return [n for n in chapter if n.reference == string][0]
 
     def check_duplicate_doi(self, doi, chapter_exists, record):
-        if chapter_exists:
-            # find if current JSON chapter has a DOI in Thoth from internal ID
-            chapter_from_internal_id = self.get_chapter_by_string(record["_id"])
-            chapter_doi = chapter_from_internal_id.doi
-            work_id_from_internal_id = chapter_from_internal_id.workId
-            try:
-                # see if there's a work in Thoth with the doi from JSON
-                chapter_from_doi = self.thoth.work_by_doi(doi=doi)
-                # get existing workId associated with DOI
-                work_id_from_doi = chapter_from_doi.workId
-            except ThothError:
-                logging.info("JSON has DOI, but DOI is not present in record in Thoth. Adding DOI to Thoth record.")
-            # if the existing work in Thoth that we found by internal ID has a DOI,
-            # and its workId matches the work we found in Thoth by DOI, then it's the same work.
-            # in this case, keep current DOI.
-            if chapter_doi and work_id_from_internal_id == work_id_from_doi:
+        try:
+            existing_thoth_work = self.thoth.work_by_doi(doi=doi)
+        except ThothError:
+            # No work with this DOI exists in Thoth, so it's not a duplicate, so it's OK to add it.
+            logging.info("JSON has DOI, and DOI does not match any record in Thoth. Adding DOI to current chapter.")
+            return doi
+        if not chapter_exists:
+            # A work with this DOI exists in Thoth, but it can't be this chapter, so it must be a duplicate.
+            logging.info(f"Existing DOI in Thoth: {doi} for different record. Skip adding DOI to current chapter.")
+            return None
+        else:
+            # A work with this DOI exists in Thoth, and a record for this chapter exists in Thoth. Are they the same?
+            chapter_from_internal_id = self.get_chapter_by_int_ref(record["_id"])
+            if chapter_from_internal_id.workId == existing_thoth_work.workId:
                 logging.info("""existing chapter by internal ID in Thoth has DOI,
                     and workId matches work found by DOI. Keeping current DOI.""")
+                return doi
             else:
                 logging.info("duplicate DOI, do not assign")
-                doi = None
-        else:
-            try:
-                self.thoth.work_by_doi(doi=doi)
-                logging.info(f"existing doi in Thoth: {doi} for different chapter, skip adding doi to current chapter")
-                doi = None
-            except ThothError:
-                doi = doi
-        return doi
-
+                return None
 
 class SciELOBookLoader(SciELOLoader):
     """SciELO specific logic to ingest metadata from Book JSON into Thoth"""
@@ -483,7 +477,7 @@ class SciELOBookLoader(SciELOLoader):
             "title": title["title"],
             "subtitle": title["subtitle"],
             "reference": record["_id"],
-            "edition": record["edition"][0] if record["edition"] and record["edition"][0].isdigit() else 1,
+            "edition": record["edition"][0] if record.get("edition") and record["edition"][0].isdigit() else 1,
             "imprintId": imprint_id,
             "doi": doi,
             "publicationDate": publication_date,

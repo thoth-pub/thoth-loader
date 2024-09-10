@@ -18,8 +18,12 @@ from uwploader import UWPLoader
 from lseloader import LSELoader
 from editusloader import EDITUSLoader
 from eduepbloader import EDUEPBLoader
+from edufbaloader import EDUFBALoader
+from rosarioloader import RosarioLoader
 from eduepbchapterloader import EDUEPBChapterLoader
 from edituschapterloader import EDITUSChapterLoader
+from edufbachapterloader import EDUFBAChapterLoader
+from rosariochapterloader import RosarioChapterLoader
 from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
 from leuvenloader import LeuvenLoader
@@ -40,6 +44,10 @@ LOADERS = {
     "EDITUS-chapters": EDITUSChapterLoader,
     "EDUEPB": EDUEPBLoader,
     "EDUEPB-chapters": EDUEPBChapterLoader,
+    "EDUFBA": EDUFBALoader,
+    "EDUFBA-chapters": EDUFBAChapterLoader,
+    "Rosario": RosarioLoader,
+    "Rosario-chapters": RosarioChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
     "UOL": UOLLoader,
     "Leuven": LeuvenLoader,
