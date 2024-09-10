@@ -9,7 +9,7 @@ from thothlibrary import ThothError
 class UbiquityPressesLoader(BookLoader):
     """
     Ubiquity specific logic to ingest metadata from CSV into Thoth
-    Currently only ingests works from LSE Press and University of Westminster Press
+    Currently only ingests works from LSE Press
     Works which already exist in Thoth should be extended/overwritten
     """
 
@@ -19,10 +19,6 @@ class UbiquityPressesLoader(BookLoader):
             self.publisher_name = self.data.at[row, 'publisher']
             if self.publisher_name == "LSE Press":
                 self.publisher_url = "https://press.lse.ac.uk/"
-                self.set_publisher_and_imprint()
-            elif self.publisher_name == "University of Westminster Press":
-                self.publisher_shortname = "UWP"
-                self.publisher_url = "https://www.uwestminsterpress.co.uk/"
                 self.set_publisher_and_imprint()
             else:
                 continue
