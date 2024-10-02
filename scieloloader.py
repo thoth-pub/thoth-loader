@@ -415,7 +415,7 @@ class SciELOBookLoader(SciELOLoader):
         for record in self.data:
             logging.info("*************\n" * 4)
             logging.info(f"processing book: {record['title']}")
-            work = self.get_work(record, self.imprint_id)
+            work = self.get_work(record)
             # try to find the work in Thoth
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -441,9 +441,9 @@ class SciELOBookLoader(SciELOLoader):
             self.create_contributors(record, work)
             self.create_languages(record, work)
             self.create_subjects(record, work)
-            self.create_series(record, self.imprint_id, work_id)
+            self.create_series(record, work_id)
 
-    def get_work(self, record, imprint_id):
+    def get_work(self, record):
         """Returns a dictionary with all attributes of a book 'work'
 
         record: current JSON record
@@ -478,7 +478,7 @@ class SciELOBookLoader(SciELOLoader):
             "subtitle": title["subtitle"],
             "reference": record["_id"],
             "edition": record["edition"][0] if record.get("edition") and record["edition"][0].isdigit() else 1,
-            "imprintId": imprint_id,
+            "imprintId": self.imprint_id,
             "doi": doi,
             "publicationDate": publication_date,
             "place": publication_place,
@@ -540,7 +540,7 @@ class SciELOBookLoader(SciELOLoader):
             else:
                 logging.info("Existing keyword subject")
 
-    def create_series(self, record, imprint_id, work_id):
+    def create_series(self, record, work_id):
         """Creates series associated with the current work
 
         record: current JSON record
@@ -557,7 +557,7 @@ class SciELOBookLoader(SciELOLoader):
         # only "serie" type series sometimes contain ISSN
         if series_name or collection_title:
             series = {
-                "imprintId": imprint_id,
+                "imprintId": self.imprint_id,
                 "seriesType": series_type,
                 "seriesName": series_name if series_name else collection_title,
                 "issnPrint": None,

@@ -28,6 +28,7 @@ from ubiquityloader import UbiquityPressesLoader
 from uolloader import UOLLoader
 from leuvenloader import LeuvenLoader
 from lharmattanloader import LHarmattanLoader
+from ubiquityapiloader import UbiquityAPILoader
 
 LOADERS = {
     "OBP": OBPBookLoader,
@@ -49,6 +50,7 @@ LOADERS = {
     "Rosario": RosarioLoader,
     "Rosario-chapters": RosarioChapterLoader,
     "Ubiquity-presses": UbiquityPressesLoader,
+    "Ubiquity-api": UbiquityAPILoader,
     "UOL": UOLLoader,
     "Leuven": LeuvenLoader,
     "LHarmattan": LHarmattanLoader,

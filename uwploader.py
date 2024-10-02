@@ -7,7 +7,7 @@ from bookloader import BookLoader
 
 
 class UWPLoader(BookLoader):
-    """UWP specific logic to ingest metadata from CSV into Thoth"""
+    """UWP specific logic to ingest metadata from MARCXML into Thoth"""
     import_format = "MARCXML"
     single_imprint = True
     publisher_name = "University of Westminster Press"
