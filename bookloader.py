@@ -55,6 +55,7 @@ class BookLoader:
         "Edited Book": "EDITED_BOOK",
         "EDITED_BOOK": "EDITED_BOOK",
         "edited book": "EDITED_BOOK",
+        "edited_volume": "EDITED_BOOK",
         "Journal Issue": "JOURNAL_ISSUE",
         "Journal": "JOURNAL_ISSUE",
         "textbook": "TEXTBOOK"
@@ -132,13 +133,66 @@ class BookLoader:
         "E116": "AZW3",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
-        "KINDLE": "AZW3"
+        # from Ubiquity CSV: unfortunately the dataset supplied doesn't distinguish
+        # between MOBI and AZW3, using the identifier "KINDLE" for both
+        "KINDLE": "AZW3",
+        # from Ubiquity API JSON dump: only one "kindle" identifier
+        # found across Radboud/UWP datasets, with file extension ".mobi"
+        "kindle": "MOBI",
+        "epub": "EPUB",
+        "pdf": "PDF",
+        "mobi": "MOBI",
+        "paperback": "PAPERBACK",
+        "hardback": "HARDBACK",
     }
 
     language_codes = {
         "pt": "POR",
         "en": "ENG",
         "es": "SPA",
+        "nld": "DUT",
+        "eng": "ENG",
+        "lat": "LAT",
+    }
+
+    country_codes = {
+        "GB": "GBR",
+        "PT": "PRT",
+        "ES": "ESP",
+        "AR": "ARG",
+        "CA": "CAN",
+        "TT": "TTO",
+        "US": "USA",
+        "NL": "NLD",
+        "CN": "CHN",
+        "JP": "JPN",
+        "EE": "EST",
+        "CH": "CHE",
+        "FR": "FRA",
+        "AU": "AUS",
+        "IT": "ITA",
+        "IE": "IRL",
+        "GR": "GRC",
+        "SN": "SEN",
+        "ZA": "ZAF",
+        "KE": "KEN",
+        "NG": "NGA",
+        "AT": "AUT",
+        "BR": "BRA",
+        "AE": "ARE",
+        "LB": "LBN",
+        "SE": "SWE",
+        "BE": "BEL",
+        "DE": "DEU",
+        "NA": "NAM",
+        "CL": "CHL",
+        "UG": "UGA",
+        "HR": "HRV",
+        "RS": "SRB",
+        "ID": "IDN",
+        "TZ": "TZA",
+        "MU": "MUS",
+        None: None,
     }
 
     dimension_types = {
