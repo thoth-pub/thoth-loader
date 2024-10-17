@@ -55,7 +55,7 @@ class UbiquityAPILoader(BookLoader):
             "edition": 1,
             "imprintId": self.imprint_id,
             "doi": doi,
-            "publicationDate": record["publication_date"],
+            "publicationDate": self.sanitise_date(record["publication_date"]),
             "place": record["publisher"]["location"],
             "pageCount": int(record["pages"]),
             "pageBreakdown": None,
@@ -203,7 +203,8 @@ class UbiquityAPILoader(BookLoader):
             publication_type = self.publication_types[format["file_type"]]
             publication_id = self.create_publication(work_id, publication_type, isbn)
 
-            for index, retailer in enumerate([retailer for retailer in record["retailers"] if retailer["type"].lower() == format["file_type"]]):
+            for index, retailer in enumerate([retailer for retailer in record["retailers"]
+                                              if retailer["type"].lower() == format["file_type"]]):
                 canonical = "true" if index == 0 else "false"
                 location = {
                     "publicationId": publication_id,

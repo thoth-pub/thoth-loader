@@ -133,11 +133,15 @@ class BookLoader:
         "E116": "AZW3",
         "Paperback": "PAPERBACK",
         "Hardback": "HARDBACK",
+        # from Ubiquity CSV: unfortunately the dataset supplied doesn't distinguish
+        # between MOBI and AZW3, using the identifier "KINDLE" for both
         "KINDLE": "AZW3",
+        # from Ubiquity API JSON dump: only one "kindle" identifier
+        # found across Radboud/UWP datasets, with file extension ".mobi"
+        "kindle": "MOBI",
         "epub": "EPUB",
         "pdf": "PDF",
         "mobi": "MOBI",
-        "kindle": "MOBI",
         "paperback": "PAPERBACK",
         "hardback": "HARDBACK",
     }
