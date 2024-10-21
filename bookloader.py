@@ -424,6 +424,8 @@ class BookLoader:
         """Return a date ready to be ingested"""
         if not date:
             return None
+        if re.match(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$', str(date)):
+            return str(date)
         date = str(int(date))
         if len(date) == len("2023"):
             return f"{date}-01-01"
