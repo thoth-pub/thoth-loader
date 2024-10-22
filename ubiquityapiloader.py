@@ -17,16 +17,21 @@ class UbiquityAPILoader(BookLoader):
     def run(self):
         """Process JSON and call Thoth to insert its data"""
         for record in self.data:
-            self.publisher_name = record["publisher"]["name"]
-            if self.publisher_name == "Radboud University Press":
-                self.publisher_url = "https://www.radbouduniversitypress.nl/"
-                self.set_publisher_and_imprint()
-            elif self.publisher_name == "University of Westminster Press":
-                self.publisher_url = "https://www.uwestminsterpress.co.uk/"
-                self.publisher_shortname = "UWP"
-                self.set_publisher_and_imprint()
-            else:
-                continue
+            # All records in file are expected to relate to the same publisher
+            if not self.publisher_name:
+                self.publisher_name = record["publisher"]["name"]
+                if self.publisher_name == "Radboud University Press":
+                    self.publisher_url = "https://www.radbouduniversitypress.nl/"
+                    self.set_publisher_and_imprint()
+                elif self.publisher_name == "University of Westminster Press":
+                    self.publisher_url = "https://www.uwestminsterpress.co.uk/"
+                    self.publisher_shortname = "UWP"
+                    self.set_publisher_and_imprint()
+                else:
+                    raise ValueError("Unsupported publisher name {}".format(record["publisher"]["name"]))
+            elif self.publisher_name != record["publisher"]["name"]:
+                raise ValueError("Dataset is for {} but record has publisher name {}".format(
+                    self.publisher_name, record["publisher"]["name"]))
             work = self.get_work(record)
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
