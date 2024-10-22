@@ -262,7 +262,7 @@ class UbiquityAPILoader(BookLoader):
         for lang_dict in record["languages"]:
             language_code = self.language_codes[lang_dict["code"]]
             # skip this language if the work already has a language with that code
-            if any(l.languageCode == language_code for l in work.languages):
+            if any(lang.languageCode == language_code for lang in work.languages):
                 continue
             language = {
                 "workId": work.workId,
