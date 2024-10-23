@@ -354,6 +354,7 @@ class BookLoader:
             if combined_contributor != thoth_contributor:
                 self.thoth.update_contributor(combined_contributor)
                 logging.info(f"updated contributor: {contributor_id}")
+            logging.info(f"contributor {contributor_id} already up to date in Thoth")
         else:
             logging.info(f"existing contributor, no changes needed to Thoth: {contributor_id}")
         return contributor
