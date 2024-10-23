@@ -22,7 +22,7 @@ class LHarmattanLoader(BookLoader):
         for index, row in self.data.iterrows():
             logging.info("\n\n\n\n**********")
             logging.info(f"processing book {index + 1}: {row['title']}")
-            work = self.get_work(row, self.imprint_id)
+            work = self.get_work(row)
             # try to find the work in Thoth
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -48,12 +48,10 @@ class LHarmattanLoader(BookLoader):
             self.create_series(row, work)
             self.create_subjects(row, work)
 
-    def get_work(self, row, imprint_id):
+    def get_work(self, row):
         """Returns a dictionary with all attributes of a 'work'
 
         row: current row number
-
-        imprint_id: previously obtained ID of this work's imprint
         """
         reference = row["uid"]
         doi = self.sanitise_doi(row["scs023_doi"])
@@ -85,7 +83,7 @@ class LHarmattanLoader(BookLoader):
             "subtitle": title["subtitle"],
             "reference": reference,
             "edition": edition,
-            "imprintId": imprint_id,
+            "imprintId": self.imprint_id,
             "doi": doi,
             "publicationDate": date,
             "place": place,
