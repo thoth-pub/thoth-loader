@@ -188,7 +188,8 @@ class LHarmattanLoader(BookLoader):
         # but there's no way to tell who when there are multiple creators
         # if there is only one creator in CSV, add website to them (if present), else don't add
         if creator_category_count == 1 and individual_creator_count == 1 and website:
-            logging.info(f"{full_name} is the only contributor for {work.title}, adding website if not already in Thoth")
+            logging.info(f"{full_name} is the only contributor for {work.title}, "
+                "adding website if not already in Thoth")
             contributor["website"] = website
             self.check_update_contributor(contributor, contributor_id)
 
@@ -364,7 +365,8 @@ class LHarmattanLoader(BookLoader):
             for subject_ordinal, subject_code in enumerate(subjects_array, start=1):
                 # check if the work already has a subject with an existing subject type/subject code combination
                 if not any(
-                    subject.subjectCode == subject_code and subject.subjectType == subject_type for subject in work.subjects
+                    subject.subjectCode == subject_code and subject.subjectType == subject_type 
+                    for subject in work.subjects
                 ):
                     create_subject(subject_type, subject_code, subject_ordinal)
                     logging.info(f"New {subject_type} {subject_code} added as Subject")
