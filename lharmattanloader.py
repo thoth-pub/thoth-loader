@@ -21,8 +21,8 @@ class LHarmattanLoader(BookLoader):
         """Process CSV and call Thoth to insert its data"""
         for index, row in self.data.iterrows():
             logging.info("\n\n\n\n**********")
-            logging.info(f"processing book {index + 1}: {row['title']}")
-            work = self.get_work(row)
+            logging.info(f"processing book from row {index + 2}: {row['title']}")
+            work = self.get_work(row, self.imprint_id)
             # try to find the work in Thoth
             try:
                 work_id = self.thoth.work_by_doi(work['doi']).workId
@@ -74,6 +74,8 @@ class LHarmattanLoader(BookLoader):
         else:
             edition = 1
         license = "https://creativecommons.org/licenses/by-nc-nd/4.0/"
+        cover_url = row["cover image URL"]
+        cover_caption = row["cover image caption"]
 
         work = {
             "workType": work_type,
@@ -103,8 +105,8 @@ class LHarmattanLoader(BookLoader):
             "generalNote": None,
             "bibliographyNote": None,
             "toc": None,
-            "coverUrl": None,
-            "coverCaption": None,
+            "coverUrl": cover_url,
+            "coverCaption": cover_caption,
             "firstPage": None,
             "lastPage": None,
             "pageInterval": None,
@@ -184,7 +186,8 @@ class LHarmattanLoader(BookLoader):
         # but there's no way to tell who when there are multiple creators
         # if there is only one creator in CSV, add website to them (if present), else don't add
         if creator_category_count == 1 and individual_creator_count == 1 and website:
-            logging.info(f"{full_name} is the only contributor for {work.title}, adding website")
+            logging.info(f"{full_name} is the only contributor for {work.title}, "
+                "adding website if not already in Thoth")
             contributor["website"] = website
             self.check_update_contributor(contributor, contributor_id)
 
@@ -303,16 +306,26 @@ class LHarmattanLoader(BookLoader):
 
         # find all existing issues in Series
         current_series = self.thoth.series(series_id)
-        # count them
-        number_of_issues = len(current_series.issues)
-        # assign next highest issueOrdinal
-        issue = {
-            "seriesId": series_id,
-            "workId": work.workId,
-            "issueOrdinal": number_of_issues + 1,
-        }
-        self.thoth.create_issue(issue)
-        logging.info("Created new issue for work")
+        issue_work_ids = []
+
+        for issue in current_series.issues:
+            issue_work_ids.append(issue.work.workId)
+
+        # find out if current work already has an issue. If not, create a new one.
+        if work.workId not in issue_work_ids:
+            # count them
+            number_of_issues = len(current_series.issues)
+
+            # assign next highest issueOrdinal
+            issue = {
+                "seriesId": series_id,
+                "workId": work.workId,
+                "issueOrdinal": number_of_issues + 1,
+            }
+            self.thoth.create_issue(issue)
+            logging.info(f"Created new issue of {current_series} for work")
+        else:
+            logging.info(f"Series Issue already exists for work; skipping creating issue of {current_series}")
 
     def create_subjects(self, row, work):
         """Creates all subjects associated with the current work
@@ -322,6 +335,7 @@ class LHarmattanLoader(BookLoader):
         work: Work from Thoth
         """
         keyword_subjects = row["scs023_keywords"].split("|")
+
         # correctly parse "scs023_field_science" into keywords and add them to keyword_subjects
         # example field value:
         # "Társadalom és gazdaságtörténet / Social and economic history (12979)|
@@ -333,6 +347,9 @@ class LHarmattanLoader(BookLoader):
             keyword_subjects.append(hungarian_field)
             keyword_subjects.append(english_field)
 
+        bisac_subjects = row["BISAC_code"].split("|")
+        thema_subjects = row["Thema_code"].split("|")
+
         def create_subject(subject_type, subject_code, subject_ordinal):
             subject = {
                 "workId": work.workId,
@@ -342,12 +359,18 @@ class LHarmattanLoader(BookLoader):
             }
             self.thoth.create_subject(subject)
 
-        for subject_ordinal, keyword in enumerate(keyword_subjects, start=1):
-            # check if the work already has a subject with the keyword subject type/subject code combination
-            if not any(
-                subject.subjectCode == keyword and subject.subjectType == "KEYWORD" for subject in work.subjects
-            ):
-                create_subject("KEYWORD", keyword, subject_ordinal)
-                logging.info(f"New keyword {keyword} added as Subject")
-            else:
-                logging.info(f"Existing keyword {keyword} associated with Work")
+        def prepare_subject(subjects_array, subject_type):
+            for subject_ordinal, subject_code in enumerate(subjects_array, start=1):
+                # check if the work already has a subject with an existing subject type/subject code combination
+                if not any(
+                    subject.subjectCode == subject_code and subject.subjectType == subject_type 
+                    for subject in work.subjects
+                ):
+                    create_subject(subject_type, subject_code, subject_ordinal)
+                    logging.info(f"New {subject_type} {subject_code} added as Subject")
+                else:
+                    logging.info(f"Existing {subject_type} {subject_code} already associated with Work")
+
+        prepare_subject(keyword_subjects, "KEYWORD")
+        prepare_subject(bisac_subjects, "BISAC")
+        prepare_subject(thema_subjects, "THEMA")
